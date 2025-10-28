@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from app.models.user import UserCreate
 from app.models.login import LoginRequest
+from app.models.otp import OtpRequest
 from app.services.auth_service import get_user_by_email, hash_password, create_access_token, verify_password
 from bson import ObjectId
 from datetime import datetime
@@ -20,10 +21,6 @@ async def register_user(payload: UserCreate):
             )
         
         user_doc_raw = payload.dict()
-
-        raw_password = user_doc_raw.pop("password")
-        password_hash = hash_password(raw_password)
-
 
         dob_date = user_doc_raw["date_of_birth"]          
         tob_time = user_doc_raw["time_of_birth"]          
@@ -45,9 +42,9 @@ async def register_user(payload: UserCreate):
             "gender": user_doc_raw["gender"],
             "date_of_birth": dob_str,            
             "time_of_birth": tob_str,            
-            "birth_timestamp": birth_timestamp,  
-            "place_of_birth": user_doc_raw["place_of_birth"],
-            "password_hash": password_hash,
+            "birth_timestamp": birth_timestamp,
+            "lat": user_doc_raw["lat"],
+            "long": user_doc_raw["long"],  
             "created_at": datetime.utcnow(),     
         }
 
@@ -64,6 +61,33 @@ async def register_user(payload: UserCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error: {str(e)}"
         )
+    
+
+@router.post("/request-otp")
+async def request_otp(payload: OtpRequest):
+    try:
+        user = await get_user_by_email(payload.email)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+        
+        await db.otp_table.update_one(
+            {"user_id": user["_id"]},
+            {"$set": {
+                "otp": "123456",
+                "created_at": datetime.utcnow(),
+            }},
+            upsert=True
+        )
+        return {"message": "OTP Sent Successfully"}
+    
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+    
 
 @router.post("/login")
 async def login(payload: LoginRequest):
@@ -72,9 +96,10 @@ async def login(payload: LoginRequest):
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
         
-        if not verify_password(payload.password, user.get("password_hash", "")):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-        
+        otp = await db.otp_table.find_one({"otp": payload.otp})
+        if not otp:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+         
         token = create_access_token(subject=str(user["_id"]))
         return {"message": "User Logged In Successfully", "access_token": token}
     
