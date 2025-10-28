@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
 
-class LoginRequest(BaseModel):
+class OtpRequest(BaseModel):
     email: str
-    otp: str
