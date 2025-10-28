@@ -57,7 +57,6 @@ async def fetch_kundli(user_details: dict):
         "tzone": user_details.get("tzone", 5.0)
     }
 
-    print("payload: ", payload)
 
     async with httpx.AsyncClient() as client:
         #Astro Details
