@@ -3,8 +3,7 @@ from app.models.user import UserCreate
 from app.models.login import LoginRequest
 from app.models.otp import OtpRequest
 from app.utils.email import send_otp_email
-from app.services.auth_service import get_user_by_email, hash_password, create_access_token, generate_otp
-from bson import ObjectId
+from app.services.auth_service import get_user_by_email, create_access_token, generate_otp
 from datetime import datetime, timedelta
 from app.db.mongo import db
 
