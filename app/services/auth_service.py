@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
+import random
 
 
 
@@ -14,6 +15,9 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGO = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 
 
+
+def generate_otp() -> str:
+    return f"{random.randint(100000, 999999)}"
 
 def _pw_to_digest(password: str) -> bytes:
     return hashlib.sha256(password.encode("utf-8")).digest()
