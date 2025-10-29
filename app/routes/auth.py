@@ -2,9 +2,10 @@ from fastapi import APIRouter, HTTPException, status
 from app.models.user import UserCreate
 from app.models.login import LoginRequest
 from app.models.otp import OtpRequest
-from app.services.auth_service import get_user_by_email, hash_password, create_access_token, verify_password
+from app.utils.email import send_otp_email
+from app.services.auth_service import get_user_by_email, hash_password, create_access_token, generate_otp
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.db.mongo import db
 
 
@@ -70,10 +71,13 @@ async def request_otp(payload: OtpRequest):
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
         
+        otp = generate_otp()
+        await send_otp_email(payload.email, otp)
+        
         await db.otp_table.update_one(
             {"user_id": user["_id"]},
             {"$set": {
-                "otp": "123456",
+                "otp": otp,
                 "created_at": datetime.utcnow(),
             }},
             upsert=True
@@ -96,10 +100,15 @@ async def login(payload: LoginRequest):
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
         
-        otp = await db.otp_table.find_one({"otp": payload.otp})
+        otp = await db.otp_table.find_one({"user_id": user["_id"], "otp": payload.otp})
         if not otp:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
-         
+        
+        created_at = otp["created_at"]
+        if not created_at or datetime.utcnow() > created_at + timedelta(minutes=10):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP Expired")
+        
+        await db.otp_table.delete_one({"user_id": user["_id"]})
         token = create_access_token(subject=str(user["_id"]))
         return {"message": "User Logged In Successfully", "access_token": token}
     
