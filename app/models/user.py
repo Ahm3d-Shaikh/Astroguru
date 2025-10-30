@@ -1,15 +1,26 @@
-from pydantic import BaseModel, EmailStr
+from typing import Annotated
+from pydantic import BaseModel, EmailStr, constr, field_validator, PydanticUserError
 from datetime import time, date
 
 
 class UserCreate(BaseModel):
-    name: str
+    name: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     email: EmailStr
-    gender: str
+    gender: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     date_of_birth: date
     time_of_birth: time
-    lat: str
-    long: str
+    lat: Annotated[str, constr(strip_whitespace=True, min_length=1)]
+    long: Annotated[str, constr(strip_whitespace=True, min_length=1)]
+
+    @field_validator("lat", "long")
+    def lat_long_must_be_nonempty(cls, v, info):
+        if not v or not v.strip():
+            raise ValueError(f"{info.field_name} cannot be empty")
+        try:
+            val = float(v)
+        except ValueError:
+            raise ValueError(f"{info.field_name} must be a valid number")
+        return v
 
 class UserInDB(BaseModel):
     id: str
@@ -20,3 +31,5 @@ class UserInDB(BaseModel):
     time_of_birth: time
     lat: str
     long: str
+
+
