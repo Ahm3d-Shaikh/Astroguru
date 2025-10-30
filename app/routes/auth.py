@@ -52,7 +52,7 @@ async def register_user(payload: UserCreate):
 
         user_id = str(res.inserted_id)
         token = create_access_token(subject=user_id)
-        return {"message": "User Registered Successfully", "access_token": token, "user_id": user_id}
+        return {"message": "User Registered Successfully"}
     
     except HTTPException as http_err:
         raise http_err
@@ -109,7 +109,9 @@ async def login(payload: LoginRequest):
         
         await db.otp_table.delete_one({"user_id": user["_id"]})
         token = create_access_token(subject=str(user["_id"]))
-        return {"message": "User Logged In Successfully", "access_token": token}
+        user_dict = dict(user)
+        user_dict["_id"] = str(user["_id"])
+        return {"message": "User Logged In Successfully", "token": token, "user": user_dict}
     
     except HTTPException as http_err:
         raise http_err
