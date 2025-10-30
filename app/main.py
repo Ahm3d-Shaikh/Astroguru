@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import astrology, auth
+from app.routes import astrology, auth, prompt
 
 app = FastAPI()
 
@@ -14,6 +14,7 @@ app.add_middleware(
 
 app.include_router(astrology.router, prefix="/astrology")
 app.include_router(auth.router, prefix="/auth")
+app.include_router(prompt.router, prefix="/system-prompt")
 
 @app.get("/")
 async def root():

@@ -13,6 +13,7 @@ router = APIRouter()
 @router.post("/signup")
 async def register_user(payload: UserCreate):
     try:
+        print(payload)
         existing = await get_user_by_email(payload.email)
         if existing:
             raise HTTPException(
@@ -41,11 +42,12 @@ async def register_user(payload: UserCreate):
             "email": user_doc_raw["email"],
             "gender": user_doc_raw["gender"],
             "date_of_birth": dob_str,            
-            "time_of_birth": tob_str,            
+            "time_of_birth": tob_str,    
             "birth_timestamp": birth_timestamp,
             "lat": user_doc_raw["lat"],
             "long": user_doc_raw["long"],  
             "created_at": datetime.utcnow(),     
+            "role": user_doc_raw["role"],        
         }
 
         res = await db.users.insert_one(user_doc)
