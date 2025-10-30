@@ -52,8 +52,8 @@ async def fetch_kundli(user_details: dict):
         "year": int(user_details["date_of_birth"].split("-")[0]),
         "hour": int(user_details["time_of_birth"].split(":")[0]),
         "min": int(user_details["time_of_birth"].split(":")[1]),
-        "lat": user_details.get("lat", 0),  # Hardcoded Value
-        "lon": user_details.get("long", 0),  # Hardcoded Value
+        "lat": user_details.get("lat"),  # Hardcoded Value
+        "lon": user_details.get("long"),  # Hardcoded Value
         "tzone": user_details.get("tzone", 5.0)
     }
 
@@ -84,8 +84,8 @@ async def fetch_kundli(user_details: dict):
         "name": user_details['name'],
         "date_of_birth": user_details["date_of_birth"],
         "time_of_birth": user_details["time_of_birth"],
-        "lat": user_details["lat"],
-        "long": user_details["long"],
+        "lat": user_details.get("lat"),
+        "long": user_details.get("long"),
         "astro_details": astro_data,
         "ascendant": astro_data.get("ascendant", ""),
         "sun_sign": astro_data.get("sign", ""),        
@@ -110,8 +110,8 @@ async def get_or_fetch_astrology_data(user_id: int, user_details: dict):
                 "name": user_details['name'],
                 "date_of_birth": user_details["date_of_birth"],
                 "time_of_birth": user_details["time_of_birth"],
-                "lat": user_details["lat"],
-                "long": user_details["long"],
+                "lat": user_details.get("lat"),
+                "long": user_details.get("long"),
                 "gender": user_details["gender"],
                 "ascendant": existing["astro_data"].get("ascendant", ""),
                 "sun_sign": existing["astro_data"].get("sun_sign", ""),
