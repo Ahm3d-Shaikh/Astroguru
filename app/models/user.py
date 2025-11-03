@@ -34,3 +34,6 @@ class UserInDB(BaseModel):
     long: str
 
 
+class Admin(BaseModel):
+    email: EmailStr
+    password: str
