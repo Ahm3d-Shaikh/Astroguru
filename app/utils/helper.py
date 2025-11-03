@@ -6,6 +6,7 @@ import httpx
 from base64 import b64encode
 from datetime import datetime
 from bson import ObjectId
+from app.utils.enums.category import Category
 
 
 
@@ -152,7 +153,30 @@ async def fetch_user_details(id):
         )
 
 
-async def get_astrology_prediction(user_astrology_data: dict, user_question: str, category: str):
+def get_category_from_question(question):
+    category_list = ", ".join([c.value for c in Category])
+    system_prompt = f"""
+    You have to fetch the category from the question given to you. These are the only categories you have to choose from:
+    {category_list}
+
+    Just give a one word answer. For Example, "When would I become a millionaire?". You just have to answer "career".
+    """
+
+    messages = [
+    {"role": "system", "content": system_prompt},
+    {"role": "user", "content": question}
+]
+    response = openai_client.chat.completions.create(
+        model='gpt-4o-mini',
+        messages=messages,
+        temperature=0,
+        max_tokens=500
+    )
+
+    return  response.choices[0].message.content
+
+async def get_astrology_prediction(user_astrology_data: dict, user_question: str):
+    category = get_category_from_question(user_question)
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
 
     system_prompt_doc = await db.system_prompts.find_one({"category": category})
@@ -179,4 +203,4 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         max_tokens=1000
     )
 
-    return response.choices[0].message.content
+    return response.choices[0].message.content, category
