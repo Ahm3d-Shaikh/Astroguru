@@ -1,11 +1,11 @@
 from typing import Annotated
-from pydantic import BaseModel, EmailStr, constr, field_validator, PydanticUserError
+from pydantic import BaseModel, constr, field_validator, PydanticUserError
 from datetime import time, date
 
 
 class UserCreate(BaseModel):
     name: Annotated[str, constr(strip_whitespace=True, min_length=1)]
-    email: EmailStr
+    phone: str
     gender: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     date_of_birth: date
     time_of_birth: time
@@ -25,7 +25,7 @@ class UserCreate(BaseModel):
 class UserInDB(BaseModel):
     id: str
     name: str
-    email: EmailStr
+    phone: str
     gender: str
     date_of_birth: date
     time_of_birth: time
