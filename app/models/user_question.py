@@ -4,4 +4,3 @@ from app.utils.enums.category import Category
 
 class UserQuestionObj(BaseModel):
     user_question: str
-    category: Optional[str] = Category.GENERAL
