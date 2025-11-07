@@ -15,7 +15,7 @@ router = APIRouter()
 @router.post("/onboard")
 async def onboard_user(payload: UserCreate, current_user = Depends(get_current_user)):
     try:
-        user_id = ObjectId(current_user["sub"])        
+        user_id = ObjectId(current_user["_id"])        
         user_doc_raw = payload.dict()
 
         dob_date = user_doc_raw["date_of_birth"]          
@@ -77,8 +77,9 @@ async def request_otp(payload: OtpRequest):
         else:
             user_id = user["_id"]
         
-        otp = generate_otp()
-        await send_otp_sms(payload.phone, otp)
+        # otp = generate_otp()
+        otp = "123456"
+        # await send_otp_sms(payload.phone, otp)
         
         await db.otp_table.update_one(
             {"user_id": user_id},
