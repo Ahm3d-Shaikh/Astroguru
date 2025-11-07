@@ -58,6 +58,17 @@ async def get_user_by_email(email: str):
         )
     
 
+async def get_user_by_phone(phone: str):
+    try:
+        return await db.users.find_one({"phone": phone})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user by phone: {str(e)}"
+        )
+
 async def get_user_by_id(user_id: str):
     try:
         return await db.users.find_one({"_id": ObjectId(user_id)})

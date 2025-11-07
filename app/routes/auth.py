@@ -1,26 +1,21 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from app.models.user import UserCreate
 from app.models.login import LoginRequest
+from app.deps.auth_deps import get_current_user
 from app.models.otp import OtpRequest
-from app.utils.email import send_otp_email
-from app.services.auth_service import get_user_by_email, create_access_token, generate_otp
+from app.utils.twilio import send_otp_sms
+from app.services.auth_service import create_access_token, generate_otp, get_user_by_phone
 from datetime import datetime, timedelta
 from app.db.mongo import db
+from bson import ObjectId
 
 
 router = APIRouter()
 
-@router.post("/signup")
-async def register_user(payload: UserCreate):
+@router.post("/onboard")
+async def onboard_user(payload: UserCreate, current_user = Depends(get_current_user)):
     try:
-        print(payload)
-        existing = await get_user_by_email(payload.email)
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail="User Already Registered"
-            )
-        
+        user_id = ObjectId(current_user["_id"])        
         user_doc_raw = payload.dict()
 
         dob_date = user_doc_raw["date_of_birth"]          
@@ -39,22 +34,26 @@ async def register_user(payload: UserCreate):
 
         user_doc = {
             "name": user_doc_raw["name"],
-            "email": user_doc_raw["email"],
             "gender": user_doc_raw["gender"],
             "date_of_birth": dob_str,            
             "time_of_birth": tob_str,    
             "birth_timestamp": birth_timestamp,
             "lat": user_doc_raw["lat"],
-            "long": user_doc_raw["long"],  
+            "long": user_doc_raw["long"], 
+            "is_onboarded": True, 
             "created_at": datetime.utcnow(),     
             "role": user_doc_raw["role"],        
         }
 
-        res = await db.users.insert_one(user_doc)
+        res = await db.users.update_one(
+            {"_id": user_id},
+            {"$set": user_doc}
+        )
 
-        user_id = str(res.inserted_id)
-        token = create_access_token(subject=user_id)
-        return {"message": "User Registered Successfully"}
+        if res.modified_count == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+
+        return {"message": "User Onboarded Successfully"}
     
     except HTTPException as http_err:
         raise http_err
@@ -68,15 +67,23 @@ async def register_user(payload: UserCreate):
 @router.post("/request-otp")
 async def request_otp(payload: OtpRequest):
     try:
-        user = await get_user_by_email(payload.email)
+        user = await get_user_by_phone(payload.phone)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+            res = await db.users.insert_one({
+                "phone": payload.phone,
+                "created_at": datetime.utcnow(),
+                "is_onboarded": False
+            })
+            user_id = res.inserted_id
+        else:
+            user_id = user["_id"]
         
-        otp = generate_otp()
-        await send_otp_email(payload.email, otp)
+        # otp = generate_otp()
+        otp = "123456"
+        # await send_otp_sms(payload.phone, otp)
         
         await db.otp_table.update_one(
-            {"user_id": user["_id"]},
+            {"user_id": user_id},
             {"$set": {
                 "otp": otp,
                 "created_at": datetime.utcnow(),
@@ -97,9 +104,9 @@ async def request_otp(payload: OtpRequest):
 @router.post("/login")
 async def login(payload: LoginRequest):
     try:
-        user = await get_user_by_email(payload.email)
+        user = await get_user_by_phone(payload.phone)
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found. Please Request OTP Again")
         
         otp = await db.otp_table.find_one({"user_id": user["_id"], "otp": payload.otp})
         if not otp:
