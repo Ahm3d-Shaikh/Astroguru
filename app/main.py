@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import astrology, auth, prompt, admin
+from app.routes import astrology, auth, prompt, admin, report
 
 app = FastAPI()
 
@@ -16,6 +16,7 @@ app.include_router(astrology.router, prefix="/astrology")
 app.include_router(auth.router, prefix="/auth")
 app.include_router(prompt.router, prefix="/system-prompt")
 app.include_router(admin.router, prefix="/admin")
+app.include_router(report.router, prefix="/report")
 
 @app.get("/")
 async def root():
