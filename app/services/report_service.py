@@ -79,3 +79,16 @@ async def update_report_by_id(update_data, id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while updating report: {str(e)}"
         )
+    
+
+async def delete_report_from_db(id: str):
+    try:
+        object_id = ObjectId(id)
+        await db.reports.delete_one({"_id": object_id})
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while deleting report from db: {str(e)}"
+        )
