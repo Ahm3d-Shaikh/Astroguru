@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
+from bson import ObjectId
 
 
 async def fetch_system_prompts():
@@ -30,4 +31,23 @@ async def add_system_prompt_to_db(category, prompt):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while adding system prompt to db: {str(e)}"
+        )
+    
+
+async def edit_prompt_in_db(id, update_data):
+    try:
+        object_id = ObjectId(id)
+        result = await db.system_prompts.update_one({"_id": object_id}, {"$set": update_data})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prompt not found")
+
+        updated_prompt = await db.system_prompts.find_one({"_id": object_id})
+        updated_prompt["_id"] = str(updated_prompt["_id"])
+        return updated_prompt
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while updating prediction: {str(e)}"
         )
