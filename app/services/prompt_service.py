@@ -21,6 +21,9 @@ async def fetch_system_prompts():
 
 async def add_system_prompt_to_db(category, prompt):
     try:
+        categories = await fetch_categories()
+        if category in categories:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category Already Exists")
         await db.system_prompts.insert_one({
             "category": category,
             "prompt": prompt
@@ -50,4 +53,17 @@ async def edit_prompt_in_db(id, update_data):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while updating prediction: {str(e)}"
+        )
+    
+
+async def fetch_categories():
+    try:
+        categories = await db.system_prompts.distinct("category")
+        return categories
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching categories: {str(e)}"
         )
