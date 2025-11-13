@@ -6,8 +6,7 @@ import httpx
 from base64 import b64encode
 from datetime import datetime
 from bson import ObjectId
-from app.utils.enums.category import Category
-
+from app.services.prompt_service import fetch_categories
 
 
 ASTRO_API_USER_ID = os.getenv("ASTROLOGY_API_USER_ID")
@@ -153,8 +152,8 @@ async def fetch_user_details(id):
         )
 
 
-def get_category_from_question(question):
-    category_list = ", ".join([c.value for c in Category])
+async def get_category_from_question(question):
+    category_list = await fetch_categories()
     system_prompt = f"""
     You have to fetch the category from the question given to you. These are the only categories you have to choose from:
     {category_list}
@@ -176,7 +175,7 @@ def get_category_from_question(question):
     return  response.choices[0].message.content
 
 async def get_astrology_prediction(user_astrology_data: dict, user_question: str):
-    category = get_category_from_question(user_question)
+    category = await get_category_from_question(user_question)
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
 
     system_prompt_doc = await db.system_prompts.find_one({"category": category})
@@ -193,13 +192,13 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
 
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_question}
+        {"role": "user", "content": f"Here is the person's astrological data:\n{astrology_summary}\n\nPlease answer the following question based on this data:\n{user_question}"}
     ]
 
     response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
-        temperature=0.7,
+        temperature=0.2,
         max_tokens=1000
     )
 

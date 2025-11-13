@@ -2,9 +2,12 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 
-async def fetch_users():
+async def fetch_users(type_filter: str = None):
     try:
-        cursor = db.users.find()
+        query = {}
+        if type_filter:
+            query["role"] = type_filter
+        cursor = db.users.find(query)
         users = await cursor.to_list(length=None)
 
         if not users:

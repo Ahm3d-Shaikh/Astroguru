@@ -1,6 +1,6 @@
 from fastapi import HTTPException, APIRouter, status, Depends
 from app.models.prompt import PromptCreate, PromptUpdate
-from app.services.prompt_service import add_system_prompt_to_db, fetch_system_prompts, edit_prompt_in_db
+from app.services.prompt_service import add_system_prompt_to_db, fetch_system_prompts, edit_prompt_in_db, fetch_categories
 from app.deps.auth_deps import get_current_user
 from app.utils.enums.category import Category
 from bson import json_util
@@ -27,6 +27,23 @@ async def get_system_prompt(current_user = Depends(get_current_user)):
             detail=f"Error while fetching system prompts: {str(e)}"
         )
 
+
+@router.get("/category")
+async def get_categories(current_user = Depends(get_current_user)):
+    try:
+        role = current_user["role"]
+        if role != "admin":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        categories = await fetch_categories()
+        return {"message": "Categories Fetched Successfully", "result": categories}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching categories: {str(e)}"
+        )
 
 @router.post("/")
 async def add_system_prompt(payload: PromptCreate, current_user =Depends(get_current_user)):
