@@ -7,6 +7,7 @@ from base64 import b64encode
 from datetime import datetime
 from bson import ObjectId
 from app.services.prompt_service import fetch_categories
+import asyncio
 
 
 ASTRO_API_USER_ID = os.getenv("ASTROLOGY_API_USER_ID")
@@ -174,7 +175,18 @@ async def get_category_from_question(question):
 
     return  response.choices[0].message.content
 
-async def get_astrology_prediction(user_astrology_data: dict, user_question: str):
+
+async def save_chat_in_db(user_id, role, message, category):
+    await db.chat_history.insert_one({
+        "user_id": ObjectId(user_id),
+        "role": role,
+        "message": message,
+        "category": category,
+        "created_at": datetime.utcnow()
+    })
+
+
+async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str):
     category = await get_category_from_question(user_question)
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
 
@@ -200,6 +212,11 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         messages=messages,
         temperature=0.2,
         max_tokens=1000
+    )
+
+    await asyncio.gather(
+    save_chat_in_db(user_id, "user", user_question, category),
+    save_chat_in_db(user_id, "assistant", response.choices[0].message.content, category)    
     )
 
     return response.choices[0].message.content, category

@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from app.db.mongo import db
 from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction
 
 
@@ -6,7 +7,7 @@ async def fetch_predictions_for_user(id, user_question):
     try:
         user_details = await fetch_user_details(id)
         astrology_data = await get_or_fetch_astrology_data(user_details["_id"], user_details)
-        result, category = await get_astrology_prediction(astrology_data, user_question)
+        result, category = await get_astrology_prediction(astrology_data, user_question, id)
         return result, category
     except HTTPException:
         raise
@@ -14,4 +15,26 @@ async def fetch_predictions_for_user(id, user_question):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching predictions for user: {str(e)}"
+        )
+    
+
+async def fetch_chat_history_for_user(category, user_id):
+    try:
+        query = {}
+        if category:
+            query["category"] = category
+
+        cursor = db.chat_history.find(query)
+        chat_history = await cursor.to_list(length=None)
+
+        if not chat_history:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Chat History Found For The User")
+        
+        return chat_history
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching chat history from db: {str(e)}"
         )
