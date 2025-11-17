@@ -31,10 +31,6 @@ async def get_system_prompt(current_user = Depends(get_current_user)):
 @router.get("/category")
 async def get_categories(current_user = Depends(get_current_user)):
     try:
-        role = current_user["role"]
-        if role != "admin":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
-        
         categories = await fetch_categories()
         return {"message": "Categories Fetched Successfully", "result": categories}
     except HTTPException as http_err:
