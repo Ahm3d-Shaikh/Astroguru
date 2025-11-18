@@ -27,12 +27,12 @@ async def add_report(payload:ReportCreate, current_user = Depends(get_current_us
     
 
 @router.get("/")
-async def get_reports(type: str = Query(None), current_user = Depends(get_current_user)):
+async def get_reports(category: str = Query(None), current_user = Depends(get_current_user)):
     try:
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to use this feature")
         
-        reports = await fetch_reports(type_filter=type)
+        reports = await fetch_reports(category)
         result_json = json.loads(json_util.dumps(reports))
 
         return {"message": "Reports Fetched Successfully", "result": result_json}
