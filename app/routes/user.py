@@ -30,7 +30,6 @@ async def get_users(type: str = Query(None), current_user = Depends(get_current_
 @router.get("/{id}")
 async def get_user_by_id(id: str, current_user = Depends(get_current_user)):
     try:
-        print(id)
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         

@@ -17,7 +17,6 @@ async def add_prediction(payload: PredictionCreate, current_user = Depends(get_c
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         await add_prediction_to_db(payload)
         return {"message": "Prediction Added Successfully"}
-        print("predictions endpoint")
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
