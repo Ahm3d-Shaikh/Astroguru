@@ -198,13 +198,20 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     system_prompt_text = system_prompt_doc["prompt"]
     system_prompt = f"""
     {system_prompt_text}
+
+    IMPORTANT RULES:
+    - The astrological data below belongs to the **same user who is chatting with you**.
+    - ALWAYS speak directly to the user.
+    - NEVER speak in third person (avoid: 'Nisha's chart', 'their chart', etc.).
+    - ALWAYS give insights as if you are advising the user directly.
+
     Astrological Data:
     {astrology_summary}
     """
 
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Here is the person's astrological data:\n{astrology_summary}\n\nPlease answer the following question based on this data:\n{user_question}"}
+        {"role": "user", "content": f"Here is my astrological data:\n{astrology_summary}\n\nPlease answer this question based on my data:\n{user_question}"}
     ]
 
     response = openai_client.chat.completions.create(
