@@ -22,11 +22,11 @@ async def add_report_in_db(payload):
         )
     
 
-async def fetch_reports(type_filter: str = None):
+async def fetch_reports(category: str = None):
     try:
         query = {}
-        if type_filter:
-            query["type"] = type_filter
+        if category:
+            query["type"] = category
         
         cursor = db.reports.find(query)
         reports = await cursor.to_list(length=None)

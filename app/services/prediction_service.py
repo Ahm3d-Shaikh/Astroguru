@@ -20,11 +20,11 @@ async def add_prediction_to_db(payload):
         )
     
 
-async def fetch_predictions(type_filter=type):
+async def fetch_predictions(category: str = None):
     try:
         query = {}
-        if type_filter:
-            query["type"] = type_filter
+        if category:
+            query["type"] = category
         
         cursor = db.predictions.find(query)
         predictions = await cursor.to_list(length=None)
