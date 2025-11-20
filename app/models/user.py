@@ -36,3 +36,13 @@ class UserInDB(BaseModel):
 class Admin(BaseModel):
     email: EmailStr
     password: str
+
+
+class UserUpdate(BaseModel):
+    phone: Optional[str] = None
+    name: Optional[str] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    time_of_birth: Optional[time] = None
+    lat: Optional[str] = None
+    long: Optional[str] = None
