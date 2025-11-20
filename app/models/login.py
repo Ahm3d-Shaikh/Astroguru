@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class LoginRequest(BaseModel):
     phone: str
+    country_code: str
     otp: str
 
 

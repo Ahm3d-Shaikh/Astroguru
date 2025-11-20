@@ -11,6 +11,7 @@ class UserCreate(BaseModel):
     time_of_birth: time
     lat: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     long: Annotated[str, constr(strip_whitespace=True, min_length=1)]
+    place_of_birth: Annotated[str, constr(strip_whitespace=True, min_length=1)]
 
     @field_validator("lat", "long")
     def lat_long_must_be_nonempty(cls, v, info):
@@ -25,12 +26,14 @@ class UserCreate(BaseModel):
 class UserInDB(BaseModel):
     id: str
     name: str
+    country_code:str
     phone: str
     gender: str
     date_of_birth: date
     time_of_birth: time
     lat: str
     long: str
+    place_of_birth: str
 
 
 class Admin(BaseModel):
