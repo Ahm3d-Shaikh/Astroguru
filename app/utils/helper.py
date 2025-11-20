@@ -22,11 +22,11 @@ async def save_astrology_data(user_id: str, astrology_data: dict):
             "user_id": user_id,
             "astro_data": astrology_data.get("astro_details", {}),
             "planets_data": astrology_data.get("planet_positions", {}),
-            "dashas_data": astrology_data.get("dashas", {}),
-            "vedic_horoscope_data": astrology_data.get("vedic_horoscope", {}),
+            "current_vdasha_data": astrology_data.get("current_vdasha", {}),
             "current_vdasha_all_data": astrology_data.get("current_vdasha_all", {}),
-            "major_yogni_dasha_data": astrology_data.get("major_yogni_dasha",  {}),
-            "current_yogni_dasha_data": astrology_data.get("current_yogni_dasha", {}),
+            "major_yogini_dasha_data": astrology_data.get("major_yogini_dasha",  {}),
+            "current_yogini_dasha_data": astrology_data.get("current_yogini_dasha", {}),
+            "horoscope_charts_data": astrology_data.get("horoscope_charts", {}),
             "updated_at": datetime.utcnow().isoformat()
         }
 
@@ -57,78 +57,69 @@ async def fetch_kundli(user_details: dict):
         "year": int(user_details["date_of_birth"].split("-")[0]),
         "hour": int(user_details["time_of_birth"].split(":")[0]),
         "min": int(user_details["time_of_birth"].split(":")[1]),
-        "lat": user_details.get("lat"),  # Hardcoded Value
-        "lon": user_details.get("long"),  # Hardcoded Value
+        "lat": user_details.get("lat"),  
+        "lon": user_details.get("long"), 
         "tzone": user_details.get("tzone", 5.0)
     }
 
 
+    D_CHART_IDS = [1,2,3,4,5,6,7,8,9,10,11,12,16,20,24,27,30,40,45,60]
+
     async with httpx.AsyncClient() as client:
-        #Astro Details
-        astro_resp = await client.post(f"{BASE_URL}/astro_details", json=payload, headers=headers)
-        if astro_resp.status_code != 200 or not astro_resp.json():
-            raise HTTPException(status_code=astro_resp.status_code, detail="Failed to fetch astro_details")
-        astro_data = astro_resp.json()
 
-        #Planet Positions
-        planets_resp = await client.post(f"{BASE_URL}/planets", json=payload, headers=headers)
-        if planets_resp.status_code != 200 or not planets_resp.json():
-            raise HTTPException(status_code=planets_resp.status_code, detail="Failed to fetch planets data")
-        planets_data = {p['name']: p for p in planets_resp.json()}  # convert to dict for easy lookup
+        main_calls = {
+            "astro": client.post(f"{BASE_URL}/astro_details", json=payload, headers=headers),
+            "planets": client.post(f"{BASE_URL}/planets", json=payload, headers=headers),
+            "current_vdasha": client.post(f"{BASE_URL}/current_vdasha", json=payload, headers=headers),
+            "current_vdasha_all": client.post(f"{BASE_URL}/current_vdasha_all", json=payload, headers=headers),
+            "major_yogini": client.post(f"{BASE_URL}/major_yogini_dasha", json=payload, headers=headers),
+            "current_yogini": client.post(f"{BASE_URL}/current_yogini_dasha", json=payload, headers=headers)
+        }
 
-        #Current Vimshottari Dasha
-        dasha_resp = await client.post(f"{BASE_URL}/current_vdasha", json=payload, headers=headers)
-        if dasha_resp.status_code != 200 or not dasha_resp.json():
-            dashas_data = {}
-        else:
-            dashas_data = dasha_resp.json()
+        main_keys = list(main_calls.keys())
+        main_responses = await asyncio.gather(*main_calls.values())
 
-        vedic_horoscope_resp = await client.post(f"{BASE_URL}/vedic_horoscope", json=payload, headers=headers)
-        print("vedic: ", vedic_horoscope_resp.json())
-        if vedic_horoscope_resp.status_code != 200 or not vedic_horoscope_resp.json():
-            raise HTTPException(status_code=vedic_horoscope_resp.status_code, detail="Failed to fetch vedic horoscope data")
-        else:
-            vedic_horoscope_data = vedic_horoscope_resp.json()
+        results = {}
+        for key, resp in zip(main_keys, main_responses):
+            if resp.status_code != 200 or not resp.json():
+                raise HTTPException(status_code=resp.status_code, detail=f"Failed to fetch {key}")
+            results[key] = resp.json()
 
-        current_vdasha_all_resp = await client.post(f"{BASE_URL}/current_vdasha_all", json=payload, headers=headers)
-        print("current vdasha ", current_vdasha_all_resp.json())
-        if current_vdasha_all_resp.status_code != 200 or not current_vdasha_all_resp.json():
-            raise HTTPException(status_code=current_vdasha_all_resp.status_code, detail="Failed to fetch current vdasha all data")
-        else:
-            current_vdasha_all_data = current_vdasha_all_resp.json()
+        async def fetch_chart(chart_id):
+            r = await client.post(f"{BASE_URL}/horo_chart/{chart_id}", json=payload, headers=headers)
+            if r.status_code == 200 and r.json():
+                return f"D{chart_id}", r.json()
+            return f"D{chart_id}", {"error": "Failed to fetch"}
 
-        major_yogni_dasha_resp = await client.post(f"{BASE_URL}/major_yogini_dasha", json=payload, headers=headers)
-        print("major yogni: ", major_yogni_dasha_resp.json())
-        if major_yogni_dasha_resp.status_code != 200 or not major_yogni_dasha_resp.json():
-            raise HTTPException(status_code=major_yogni_dasha_resp.status_code, detail="Failed to fetch major yogni dasha data")
-        else:
-            major_yogni_dasha_data = major_yogni_dasha_resp.json()
+        d_tasks = [fetch_chart(cid) for cid in D_CHART_IDS]
+        d_results = await asyncio.gather(*d_tasks)
 
-        current_yogni_dasha_resp = await client.post(f"{BASE_URL}/current_yogini_dasha", json=payload, headers=headers)
-        print("current yogni: ", current_yogni_dasha_resp.json())
-        if current_yogni_dasha_resp.status_code != 200 or not current_yogni_dasha_resp.json():
-            raise HTTPException(status_code=current_yogni_dasha_resp.status_code, detail="Failed to fetch current yogni dasha data")
-        else:
-            current_yogni_dasha_data = current_yogni_dasha_resp.json()
+        all_d_charts = {k: v for k, v in d_results}
 
+
+    planets_data = {p['name']: p for p in results["planets"]}
     moon_sign = planets_data.get("Moon", {}).get("sign", "")
-    # Combine into final astrology object
+
     astrology_data = {
-        "name": user_details['name'],
+        "name": user_details["name"],
         "date_of_birth": user_details["date_of_birth"],
         "time_of_birth": user_details["time_of_birth"],
         "lat": user_details.get("lat"),
         "long": user_details.get("long"),
-        "astro_details": astro_data,
-        "ascendant": astro_data.get("ascendant", ""),
-        "sun_sign": astro_data.get("sign", ""),        
+
+        "astro_details": results["astro"],
+        "ascendant": results["astro"].get("ascendant", ""),
+        "sun_sign": results["astro"].get("sign", ""),
         "moon_sign": moon_sign,
+
         "planet_positions": planets_data,
-        "dashas": dashas_data,
-        "vedic_horoscope": vedic_horoscope_data,
-        "current_vdasha_all": current_vdasha_all_data,
-        "major_yogni_dasha": major_yogni_dasha_data,
-        "current_yogni_dasha": current_yogni_dasha_data
+
+        "current_vdasha": results["current_vdasha"],
+        "current_vdasha_all": results["current_vdasha_all"],
+        "major_yogini_dasha": results["major_yogini"],
+        "current_yogini_dasha": results["current_yogini"],
+
+        "horoscope_charts": all_d_charts
     }
 
     return astrology_data
@@ -149,17 +140,21 @@ async def get_or_fetch_astrology_data(user_id: int, user_details: dict):
                 "time_of_birth": user_details["time_of_birth"],
                 "lat": user_details.get("lat"),
                 "long": user_details.get("long"),
+                "place_of_birth": user_details.get("place_of_birth"),
                 "gender": user_details["gender"],
                 "ascendant": existing["astro_data"].get("ascendant", ""),
                 "sun_sign": existing["astro_data"].get("sun_sign", ""),
                 "moon_sign": existing["planets_data"].get("Moon", {}).get("sign", ""),
                 "planet_positions": existing["planets_data"],
-                "dashas": existing["dashas_data"]
+                "current_vdasha": existing["current_vdasha_data"],
+                "current_vdasha_all": existing["current_vdasha_all_data"],
+                "current_yogini_dasha": existing["current_yogini_dasha_data"],
+                "major_yogini_dasha": existing["major_yogini_dasha_data"],
+                "horoscope_charts": existing["horoscope_charts_data"]
             }
 
         # 2️⃣ If not exists, call astrology API
         astrology_data = await fetch_kundli(user_details)
-        print(astrology_data)
 
         # 3️⃣ Save into DB
         await save_astrology_data(user_id, astrology_data)
