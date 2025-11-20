@@ -204,6 +204,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     - ALWAYS speak directly to the user.
     - NEVER speak in third person (avoid: 'Nisha's chart', 'their chart', etc.).
     - ALWAYS give insights as if you are advising the user directly.
+    - Never respond to anything unrelated to astrology or predictions
 
     Astrological Data:
     {astrology_summary}
