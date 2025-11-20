@@ -77,8 +77,8 @@ async def edit_profile(id: str, payload: UserProfileUpdate, current_user = Depen
 
         if not update_data:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
-        updated_prompt = await edit_profile_in_db(id, user_id, update_data)
-        return {"message": "Profile Updated Successfully", "result": updated_prompt}
+        updated_profile = await edit_profile_in_db(id, user_id, update_data)
+        return {"message": "Profile Updated Successfully", "result": updated_profile}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
