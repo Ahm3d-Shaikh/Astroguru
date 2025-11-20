@@ -8,6 +8,7 @@ class UserProfileCreate(BaseModel):
     gender: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     date_of_birth: date
     time_of_birth: time
+    place_of_birth: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     lat: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     long: Annotated[str, constr(strip_whitespace=True, min_length=1)]
 
@@ -27,5 +28,6 @@ class UserProfileUpdate(BaseModel):
     gender : Optional[str] = None
     date_of_birth: Optional[date] = None
     time_of_birth: Optional[time] = None
+    place_of_birth: Optional[str] = None
     lat: Optional[str] = None
     long: Optional[str] = None

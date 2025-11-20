@@ -42,10 +42,12 @@ class Admin(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    country_code: Optional[str] = None
     phone: Optional[str] = None
     name: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[date] = None
     time_of_birth: Optional[time] = None
+    place_of_birth: Optional[str] = None
     lat: Optional[str] = None
     long: Optional[str] = None
