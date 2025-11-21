@@ -58,9 +58,9 @@ async def get_user_by_email(email: str):
         )
     
 
-async def get_user_by_phone(phone: str):
+async def get_user_by_phone(phone: str, country_code: str):
     try:
-        return await db.users.find_one({"phone": phone})
+        return await db.users.find_one({"phone": phone, "country_code": country_code})
     except HTTPException:
         raise
     except Exception as e:

@@ -25,6 +25,7 @@ async def add_profile_to_db(payload, user_id):
             "name":payload.name,
             "date_of_birth": dob_str,
             "time_of_birth": tob_str,
+            "place_of_birth": payload.place_of_birth,
             "birth_timestamp": birth_timestamp,
             "lat": payload.lat,
             "long": payload.long
@@ -109,7 +110,7 @@ async def edit_profile_in_db(id, user_id, update_data):
             )
             update_fields["birth_timestamp"] = birth_timestamp
 
-        for field in ["name", "gender", "lat", "long"]:
+        for field in ["name", "gender", "lat", "long", "place_of_birth"]:
             if field in update_data and update_data[field] is not None:
                 update_fields[field] = update_data[field]
 

@@ -38,6 +38,7 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
             "date_of_birth": dob_str,            
             "time_of_birth": tob_str,    
             "birth_timestamp": birth_timestamp,
+            "place_of_birth": user_doc_raw["place_of_birth"],
             "lat": user_doc_raw["lat"],
             "long": user_doc_raw["long"], 
             "is_onboarded": True, 
@@ -67,10 +68,11 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
 @router.post("/request-otp")
 async def request_otp(payload: OtpRequest):
     try:
-        user = await get_user_by_phone(payload.phone)
+        user = await get_user_by_phone(payload.phone, payload.country_code)
         if not user:
             res = await db.users.insert_one({
                 "phone": payload.phone,
+                "country_code": payload.country_code,
                 "created_at": datetime.utcnow(),
                 "is_onboarded": False
             })
@@ -104,7 +106,7 @@ async def request_otp(payload: OtpRequest):
 @router.post("/login")
 async def login(payload: LoginRequest):
     try:
-        user = await get_user_by_phone(payload.phone)
+        user = await get_user_by_phone(payload.phone, payload.country_code)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found. Please Request OTP Again")
         

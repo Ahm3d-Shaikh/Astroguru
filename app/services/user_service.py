@@ -94,7 +94,7 @@ async def edit_user_details(user_id, update_data):
             )
             update_fields["birth_timestamp"] = birth_timestamp
 
-        for field in ["phone", "name", "gender", "lat", "long"]:
+        for field in ["country_code","phone", "name", "gender", "lat", "long", "place_of_birth"]:
             if field in update_data and update_data[field] is not None:
                 update_fields[field] = update_data[field]
 
