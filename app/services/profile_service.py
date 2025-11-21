@@ -26,6 +26,7 @@ async def add_profile_to_db(payload, user_id):
             "date_of_birth": dob_str,
             "time_of_birth": tob_str,
             "birth_timestamp": birth_timestamp,
+            "gender": payload.gender,
             "lat": payload.lat,
             "long": payload.long
         })
