@@ -92,3 +92,47 @@ async def delete_report_from_db(id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while deleting report from db: {str(e)}"
         )
+    
+
+async def add_user_report_to_db(id, user_id):
+    try:
+        await db.user_reports.insert_one({
+            "user_id": ObjectId(user_id),
+            "report_id": ObjectId(id),
+        })
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while adding user report to db: {str(e)}"
+        )
+    
+
+async def fetch_user_reports(user_id):
+    try:
+        user_reports = await db.user_reports.find(
+            {"user_id": ObjectId(user_id)}
+        ).to_list(length=None)
+
+        if len(user_reports) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Downloaded Reports Found For The User"
+            )
+
+        report_ids = [ur["report_id"] for ur in user_reports]
+
+        reports = await db.reports.find(
+            {"_id": {"$in": report_ids}}
+        ).to_list(length=None)
+
+        return reports
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user reports: {str(e)}"
+        )

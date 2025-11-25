@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
-from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction
+from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper
 
 
 async def fetch_predictions_for_user(id, user_question):
@@ -38,3 +38,14 @@ async def fetch_chat_history_for_user(category, user_id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching chat history from db: {str(e)}"
         )
+    
+
+async def generate_report_from_ai(id, user_id):
+    user_report = await fetch_user_report(id, user_id)
+    if not user_report:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    
+    user_details = await fetch_user_details(user_id)
+    astrology_data = await get_or_fetch_astrology_data(user_details["_id"], user_details)
+    generated_report = await generate_report_helper(user_details, astrology_data, user_report)
+    return generated_report
