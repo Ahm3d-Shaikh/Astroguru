@@ -5,9 +5,13 @@ import os
 import httpx
 from base64 import b64encode
 from datetime import datetime
+from fpdf import FPDF
 from bson import ObjectId
 from app.services.prompt_service import fetch_categories
 import asyncio
+import io
+import re
+from app.clients.aws import s3_client, S3_BUCKET
 
 
 ASTRO_API_USER_ID = os.getenv("ASTROLOGY_API_USER_ID")
@@ -260,3 +264,147 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     )
 
     return response.choices[0].message.content, category
+
+
+def markdown_to_plain(text: str) -> str:
+    if not text:
+        return ""
+
+    text = re.sub(r'(^|\n)#{1,6}\s*(.+)', r'\1\n\2\n', text)
+
+    text = re.sub(r'(\*\*|__|\*)', '', text)
+
+    text = re.sub(r'^[\*\-\+]\s+', '- ', text, flags=re.MULTILINE)
+
+    return text.strip()
+
+
+async def generate_report_helper(user_details, astrology_data, user_report):
+    astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
+    prompt = user_report.get("prompt", "You are an astrology report generator.")
+
+    messages = [
+        {"role": "system", "content": prompt},
+        {
+            "role": "user",
+            "content": (
+                f"Here is my astrological data:\n{astrology_summary}\n\n"
+                f"Here's my personal data: {user_details}\n\n"
+                "Generate a detailed, warm, human-sounding astrology report."
+            ),
+        },
+    ]
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        temperature=0.2,
+        max_tokens=1000,
+    )
+
+    report_text = response.choices[0].message.content or ""
+
+    safe_text = markdown_to_plain(report_text)
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_left_margin(15)
+    pdf.set_right_margin(15)
+    pdf.add_page()
+
+    pdf.add_font(
+        "NotoSans",
+        "",
+        "app/deps/fonts/NotoSans-Regular.ttf",
+        uni=True,
+    )
+    pdf.add_font(
+        "NotoSans",
+        "I",
+        "app/deps/fonts/NotoSans-Italic.ttf",
+        uni=True,
+    )
+    pdf.add_font(
+        "NotoSans",
+        "B",
+        "app/deps/fonts/NotoSans-Bold.ttf",
+        uni=True,
+    )
+
+    # Title
+    pdf.set_font("NotoSans", "B", 16)
+    pdf.cell(0, 10, "Astrology Report", ln=True, align="C")
+    pdf.ln(10)
+
+    pdf.set_font("NotoSans", "", 12)
+
+    paragraphs = safe_text.split("\n")
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            pdf.ln(5)  
+            continue
+
+        pdf.multi_cell(0, 8, para)
+        pdf.ln(2)
+
+    pdf.ln(5)
+
+    pdf.set_y(-20)  
+    pdf.set_font("NotoSans", "I", 10)
+    pdf.cell(
+        0,
+        10,
+        f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        align="R",
+    )
+
+    pdf_raw = pdf.output(dest="S")
+    if isinstance(pdf_raw, str):
+        pdf_bytes = pdf_raw.encode("latin1")
+    else:
+        pdf_bytes = bytes(pdf_raw)
+
+    pdf_buffer = io.BytesIO(pdf_bytes)
+    pdf_buffer.seek(0)
+
+    filename = f"astrology_report_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    s3_key = f"astrology_reports/{filename}"
+
+    s3_client.upload_fileobj(
+        Fileobj=pdf_buffer,
+        Bucket=S3_BUCKET,
+        Key=s3_key,
+        ExtraArgs={"ContentType": "application/pdf"},
+    )
+
+    file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"
+    return file_url
+
+
+async def fetch_user_report(id, user_id):
+    try:
+        user_report = await db.user_reports.find_one(
+            {"user_id": ObjectId(user_id), "report_id": ObjectId(id)}
+        )
+
+        if not user_report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Downloaded Reports Found For The User"
+            )
+
+        report_id = user_report["report_id"]
+        report = await db.reports.find_one(
+            {"_id": report_id}
+        )
+
+        return report
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user report: {str(e)}"
+        )
