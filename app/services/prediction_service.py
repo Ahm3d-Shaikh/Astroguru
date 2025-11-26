@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status, Body
 from app.db.mongo import db
 from bson import ObjectId
+from datetime import datetime
 
 
 
@@ -9,7 +10,8 @@ async def add_prediction_to_db(payload):
         await db.predictions.insert_one({
             "name": payload.name,
             "type": payload.type,
-            "prompt": payload.prompt
+            "prompt": payload.prompt,
+            "created_at": datetime.utcnow()
         })
     except HTTPException as http_err:
         raise http_err
