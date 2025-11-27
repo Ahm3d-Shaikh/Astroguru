@@ -9,7 +9,6 @@ async def add_prediction_to_db(payload):
     try:
         await db.predictions.insert_one({
             "name": payload.name,
-            "type": payload.type,
             "prompt": payload.prompt,
             "created_at": datetime.utcnow()
         })
