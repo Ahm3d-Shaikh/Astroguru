@@ -7,6 +7,7 @@ from base64 import b64encode
 from datetime import datetime
 from fpdf import FPDF
 from bson import ObjectId
+import json
 from app.services.prompt_service import fetch_categories
 import asyncio
 import io
@@ -407,4 +408,65 @@ async def fetch_user_report(id, user_id):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching user report: {str(e)}"
+        )
+    
+
+
+async def generate_predictions_for_homepage(user_details, astrology_data):
+    try:
+        astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
+        prediction_prompt_doc = await db.predictions.find_one({"name": "dashboard"})
+        prompt = prediction_prompt_doc["prompt"]
+
+        messages = [
+            {"role": "system", "content": prompt},
+            {
+                "role": "user",
+                "content": (
+                    f"Here is my astrological data:\n{astrology_summary}\n\n"
+                    f"Here's my personal data: {user_details}\n\n"
+                    "Give me predictions about me. Return a JSON object with two keys:\n"
+                    "1. 'text' -> containing your written predictions in plain text.\n"
+                    "2. 'prediction_dict' -> a Python dictionary containing:\n"
+                    """{
+                        "lucky_number": <int>,
+                        "lucky_color": "<string>",
+                        "lucky_time": "<string>",
+                        "name": "<string>",
+                        "sun_sign": "<string>",
+                        "element": "<string>",
+                        "moon_sign": "<string>",
+                        "polarity": "<string>",
+                        "modality": "<string>",
+                        "zodiac_sign": "<string>"
+                    }"""
+                )
+            }
+        ]
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            temperature=0.2,
+            max_tokens=1000,
+        )
+
+        content = response.choices[0].message.content    
+        content_cleaned = re.sub(r"^```json\s*|```$", "", content.strip(), flags=re.MULTILINE)
+
+        try:
+            data = json.loads(content_cleaned)
+            text_output = data.get("text", "")
+            prediction_dict = data.get("prediction_dict", {})
+        except json.JSONDecodeError:
+            text_output = content
+            prediction_dict = {}
+
+        return text_output, prediction_dict
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while generating predictions for homepage: {str(e)}"
         )
