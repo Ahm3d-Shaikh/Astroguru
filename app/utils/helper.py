@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from app.clients.openai_client import openai_client
+from app.clients.gemini_client import genai
 import os
 import httpx
 from base64 import b64encode
@@ -198,19 +199,22 @@ async def get_category_from_question(question):
 
     Just give a one word answer. For Example, "When would I become a millionaire?". You just have to answer "career".
     """
-
-    messages = [
-    {"role": "system", "content": system_prompt},
-    {"role": "user", "content": question}
-]
-    response = openai_client.chat.completions.create(
-        model='gpt-4o-mini',
-        messages=messages,
-        temperature=0,
-        max_tokens=500
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    prompt = [
+        system_prompt,
+        question
+    ]
+    
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.types.GenerationConfig(
+            temperature=0.2,
+            max_output_tokens=1000
+        )
     )
 
-    return  response.choices[0].message.content
+    reply = response.text.strip().strip('"').strip("'")  # <-- normalize
+    return reply
 
 
 async def save_chat_in_db(user_id, role, message, category):
@@ -246,25 +250,29 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     Astrological Data:
     {astrology_summary}
     """
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Here is my astrological data:\n{astrology_summary}\n\nPlease answer this question based on my data:\n{user_question}"}
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    prompt = [
+        system_prompt,
+        f"Here is my astrological data:\n{astrology_summary}\n\n"
+        f"Please answer this question based on my data:\n{user_question}"
     ]
 
-    response = openai_client.chat.completions.create(
-        model="gpt-4o",
-        messages=messages,
-        temperature=0.2,
-        max_tokens=1000
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.types.GenerationConfig(
+            temperature=0.2,
+            max_output_tokens=1000
+        )
     )
+
+    reply = response.text
 
     await asyncio.gather(
     save_chat_in_db(user_id, "user", user_question, category),
-    save_chat_in_db(user_id, "assistant", response.choices[0].message.content, category)    
+    save_chat_in_db(user_id, "assistant", reply, category)    
     )
 
-    return response.choices[0].message.content, category
+    return reply, category
 
 
 def markdown_to_plain(text: str) -> str:
@@ -283,27 +291,22 @@ def markdown_to_plain(text: str) -> str:
 async def generate_report_helper(user_details, astrology_data, user_report):
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
     prompt = user_report.get("prompt", "You are an astrology report generator.")
-
-    messages = [
-        {"role": "system", "content": prompt},
-        {
-            "role": "user",
-            "content": (
-                f"Here is my astrological data:\n{astrology_summary}\n\n"
-                f"Here's my personal data: {user_details}\n\n"
-                "Generate a detailed, warm, human-sounding astrology report."
-            ),
-        },
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    prompt_for_gemini = [
+        prompt,
+        f"Here is my astrological data:\n{astrology_summary}\n\n",
+        f"Here's my personal data: {user_details}\n\n",
+        "Generate a detailed, warm, human-sounding astrology report."
     ]
-
-    response = openai_client.chat.completions.create(
-        model="gpt-4o",
-        messages=messages,
-        temperature=0.2,
-        max_tokens=1000,
+    response = model.generate_content(
+        prompt_for_gemini,
+        generation_config=genai.types.GenerationConfig(
+            temperature=0.2,
+            max_output_tokens=1000
+        )
     )
 
-    report_text = response.choices[0].message.content or ""
+    report_text = response.text
 
     safe_text = markdown_to_plain(report_text)
 
@@ -415,43 +418,42 @@ async def fetch_user_report(id, user_id):
 async def generate_predictions_for_homepage(user_details, astrology_data):
     try:
         astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
-        prediction_prompt_doc = await db.predictions.find_one({"name": "dashboard"})
+        prediction_prompt_doc = await db.predictions.find_one({"name": "Dashboard Overview"})
         prompt = prediction_prompt_doc["prompt"]
+        model = genai.GenerativeModel("gemini-2.0-flash")
 
-        messages = [
-            {"role": "system", "content": prompt},
-            {
-                "role": "user",
-                "content": (
-                    f"Here is my astrological data:\n{astrology_summary}\n\n"
-                    f"Here's my personal data: {user_details}\n\n"
-                    "Give me predictions about me. Return a JSON object with two keys:\n"
-                    "1. 'text' -> containing your written predictions in plain text.\n"
-                    "2. 'prediction_dict' -> a Python dictionary containing:\n"
-                    """{
-                        "lucky_number": <int>,
-                        "lucky_color": "<string>",
-                        "lucky_time": "<string>",
-                        "name": "<string>",
-                        "sun_sign": "<string>",
-                        "element": "<string>",
-                        "moon_sign": "<string>",
-                        "polarity": "<string>",
-                        "modality": "<string>",
-                        "zodiac_sign": "<string>"
-                    }"""
-                )
-            }
+        prompt_for_gemini = [
+            prompt,
+            f"Here is my astrological data:\n{astrology_summary}\n\n",
+            f"Here's my personal data: {user_details}\n\n",
+            "Give me predictions about me. Return a JSON object with two keys:\n"
+            "1. 'text' -> containing your written predictions in plain text.\n"
+            "2. 'prediction_dict' -> a Python dictionary containing:\n"
+            """{
+                "lucky_number": <int>,
+                "lucky_color": "<string>",
+                "lucky_time": "<string>" For Example: 03:00 AM,
+                "name": "<string>",
+                "sun_sign": "<string>",
+                "element": "<string>",
+                "moon_sign": "<string>",
+                "polarity": "<string>",
+                "modality": "<string>",
+                "zodiac_sign": "<string>"
+            }"""
+
         ]
 
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
+
+        response = model.generate_content(
+        prompt_for_gemini,
+        generation_config=genai.types.GenerationConfig(
             temperature=0.2,
-            max_tokens=1000,
+            max_output_tokens=1000
+        )
         )
 
-        content = response.choices[0].message.content    
+        content = response.text
         content_cleaned = re.sub(r"^```json\s*|```$", "", content.strip(), flags=re.MULTILINE)
 
         try:
