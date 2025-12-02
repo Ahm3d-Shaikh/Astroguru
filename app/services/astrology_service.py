@@ -40,14 +40,14 @@ async def fetch_chat_history_for_user(category, user_id):
         )
     
 
-async def generate_report_from_ai(id, user_id):
+async def generate_report_from_ai(id, user_id, pdf_report):
     user_report = await fetch_user_report(id, user_id)
     if not user_report:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     
     user_details = await fetch_user_details(user_id)
     astrology_data = await get_or_fetch_astrology_data(user_details["_id"], user_details)
-    generated_report = await generate_report_helper(user_details, astrology_data, user_report)
+    generated_report = await generate_report_helper(user_details, astrology_data, user_report, pdf_report)
     return generated_report
 
 
