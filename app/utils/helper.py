@@ -288,7 +288,7 @@ def markdown_to_plain(text: str) -> str:
     return text.strip()
 
 
-async def generate_report_helper(user_details, astrology_data, user_report):
+async def generate_report_helper(user_details, astrology_data, user_report, pdf_report):
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
     prompt = user_report.get("prompt", "You are an astrology report generator.")
     model = genai.GenerativeModel("gemini-2.0-flash")
@@ -307,6 +307,8 @@ async def generate_report_helper(user_details, astrology_data, user_report):
     )
 
     report_text = response.text
+    if not pdf_report or pdf_report is False:
+        return report_text
 
     safe_text = markdown_to_plain(report_text)
 

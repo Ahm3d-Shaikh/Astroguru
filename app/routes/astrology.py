@@ -41,13 +41,13 @@ async def get_chat_history(category: str = Query(None), current_user = Depends(g
     
 
 @router.post("/report/{id}")
-async def generate_report(id: str, current_user = Depends(get_current_user)):
+async def generate_report(id: str, pdf_report: bool = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         if not id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
         
-        generated_report = await generate_report_from_ai(id, user_id)
+        generated_report = await generate_report_from_ai(id, user_id, pdf_report)
         return {"message": "Report Generated Successfully", "result": generated_report}
     except HTTPException as http_err:
         raise http_err
