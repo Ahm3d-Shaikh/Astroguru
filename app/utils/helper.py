@@ -299,7 +299,7 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
         prompt_for_gemini,
         generation_config=genai.types.GenerationConfig(
             temperature=0.2,
-            max_output_tokens=1000
+            max_output_tokens=2000
         )
     )
 
@@ -431,6 +431,7 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
             """{
                 "lucky_number": <int>,
                 "lucky_color": "<string>",
+                "lucky_color_hex": <string> For Example: #008000
                 "lucky_time": "<string>" For Example: 03:00 AM,
                 "name": "<string>",
                 "sun_sign": "<string>",
