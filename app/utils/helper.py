@@ -261,7 +261,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         prompt,
         generation_config=genai.types.GenerationConfig(
             temperature=0.2,
-            max_output_tokens=1000
+            max_output_tokens=700
         )
     )
 
