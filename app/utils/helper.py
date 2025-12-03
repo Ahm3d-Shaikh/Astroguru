@@ -246,9 +246,6 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     - NEVER speak in third person (avoid: 'Nisha's chart', 'their chart', etc.).
     - ALWAYS give insights as if you are advising the user directly.
     - Never respond to anything unrelated to astrology or predictions
-
-    Astrological Data:
-    {astrology_summary}
     """
     model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = [
@@ -261,7 +258,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         prompt,
         generation_config=genai.types.GenerationConfig(
             temperature=0.2,
-            max_output_tokens=700
+            max_output_tokens=1000
         )
     )
 
