@@ -1,14 +1,15 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
+from bson import ObjectId
 from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage
 
 
-async def fetch_predictions_for_user(id, user_question):
+async def fetch_predictions_for_user(id, user_question, conversation_id):
     try:
         user_details = await fetch_user_details(id)
         astrology_data = await get_or_fetch_astrology_data(user_details["_id"], user_details)
-        result, category = await get_astrology_prediction(astrology_data, user_question, id)
-        return result, category
+        result, category, conversation_id = await get_astrology_prediction(astrology_data, user_question, id, conversation_id)
+        return result, category, conversation_id
     except HTTPException:
         raise
     except Exception as e:
@@ -18,13 +19,16 @@ async def fetch_predictions_for_user(id, user_question):
         )
     
 
-async def fetch_chat_history_for_user(category, user_id):
+async def fetch_chat_history_for_user(category, id, user_id):
     try:
-        query = {}
+        query = {
+            "user_id": ObjectId(user_id),
+            "conversation_id": ObjectId(id)
+        }
         if category:
             query["category"] = category
 
-        cursor = db.chat_history.find(query)
+        cursor = db.chat_history.find(query).sort("created_at", 1)
         chat_history = await cursor.to_list(length=None)
 
         if not chat_history:

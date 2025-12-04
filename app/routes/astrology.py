@@ -13,8 +13,9 @@ router = APIRouter()
 async def fetch_astrology_details(user_question_object: UserQuestionObj, user = Depends(get_current_user)):
     try:
         user_id = user["_id"]
-        result, category = await fetch_predictions_for_user(user_id, user_question_object.user_question)
-        return {"message": "Prediction Fetched Successfully", "result": result, "category": category}
+        conversation_id = user_question_object.conversation_id
+        result, category, new_conversation_id = await fetch_predictions_for_user(user_id, user_question_object.user_question, conversation_id)
+        return {"message": "Prediction Fetched Successfully", "result": result, "category": category, "conversation_id": new_conversation_id}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -24,11 +25,11 @@ async def fetch_astrology_details(user_question_object: UserQuestionObj, user = 
         )
     
 
-@router.get("/chat-history")
-async def get_chat_history(category: str = Query(None), current_user = Depends(get_current_user)):
+@router.get("/chat-history/{id}")
+async def get_chat_history(id: str, category: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        chat_history = await fetch_chat_history_for_user(category, user_id)
+        chat_history = await fetch_chat_history_for_user(category, id, user_id)
         result_json = json.loads(json_util.dumps(chat_history))
         return {"message": "Chat History Fetched Successfully", "result": result_json}
     except HTTPException as http_err:

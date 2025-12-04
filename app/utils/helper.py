@@ -217,20 +217,35 @@ async def get_category_from_question(question):
     return reply
 
 
-async def save_chat_in_db(user_id, role, message, category):
+async def save_chat_in_db(user_id, role, conversation_id,  message, category):
     await db.chat_history.insert_one({
         "user_id": ObjectId(user_id),
         "role": role,
+        "conversation_id": ObjectId(conversation_id),
         "message": message,
         "category": category,
         "created_at": datetime.utcnow()
     })
 
 
-async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str):
+async def create_conversation(user_id, category, first_user_message):
+    result = await db.conversations.insert_one({
+        "user_id": ObjectId(user_id),
+        "category": category,
+        "title": first_user_message[:50],
+        "created_at": datetime.utcnow()
+    })
+
+    return str(result.inserted_id)
+
+
+async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str, conversation_id=None):
     category = await get_category_from_question(user_question)
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
 
+    if not conversation_id:
+        conversation_id = await create_conversation(user_id, category, user_question)
+    
     system_prompt_doc = await db.system_prompts.find_one({"category": category})
 
     if not system_prompt_doc:
@@ -248,8 +263,17 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     - Never respond to anything unrelated to astrology or predictions
     """
     model = genai.GenerativeModel("gemini-2.0-flash")
+    past_messages = await db.chat_history.find({
+        "conversation_id": ObjectId(conversation_id)
+    }).to_list(length=20)  
+    
+    history_text = "\n".join(
+        [f"{msg['role']}: {msg['message']}" for msg in past_messages]
+    )
+    
     prompt = [
         system_prompt,
+        f"Chat History: \n{history_text}\n\n"
         f"Here is my astrological data:\n{astrology_summary}\n\n"
         f"Please answer this question based on my data:\n{user_question}"
     ]
@@ -265,11 +289,11 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     reply = response.text
 
     await asyncio.gather(
-    save_chat_in_db(user_id, "user", user_question, category),
-    save_chat_in_db(user_id, "assistant", reply, category)    
+    save_chat_in_db(user_id, "user", conversation_id, user_question, category),
+    save_chat_in_db(user_id, "assistant", conversation_id, reply, category)    
     )
 
-    return reply, category
+    return reply, category, conversation_id
 
 
 def markdown_to_plain(text: str) -> str:
