@@ -2,9 +2,16 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 
-async def fetch_conversations(user_id):
+async def fetch_conversations(user_id, profile_id=None):
     try:
-        cursor = db.conversations.find({"user_id": ObjectId(user_id)})
+        query = {
+            "user_id": ObjectId(user_id) 
+        }
+
+        if profile_id:
+            query["profile_id"] = ObjectId(profile_id)
+        
+        cursor = db.conversations.find(query)
         conversations = await cursor.to_list(length=None)
         if len(conversations) == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Conversations Found")

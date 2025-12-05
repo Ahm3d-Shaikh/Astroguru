@@ -22,10 +22,11 @@ ASTRO_API_KEY = os.getenv("ASTROLOGY_API_KEY")
 BASE_URL = "https://json.astrologyapi.com/v1"
 
 
-async def save_astrology_data(user_id: str, astrology_data: dict):
+async def save_astrology_data(user_id: str, profile_id: str, astrology_data: dict):
     try:
         record = {
-            "user_id": user_id,
+            "user_id": ObjectId(user_id),
+            "profile_id": ObjectId(profile_id),
             "astro_data": astrology_data.get("astro_details", {}),
             "planets_data": astrology_data.get("planet_positions", {}),
             "current_vdasha_data": astrology_data.get("current_vdasha", {}),
@@ -37,7 +38,7 @@ async def save_astrology_data(user_id: str, astrology_data: dict):
         }
 
         await db.astrological_information.update_one(
-            {"user_id": user_id},
+            {"user_id": user_id, "profile_id": profile_id},
             {"$set": record},
             upsert=True
         )
@@ -131,23 +132,23 @@ async def fetch_kundli(user_details: dict):
     return astrology_data
 
 
-async def get_or_fetch_astrology_data(user_id: int, user_details: dict):
+async def get_or_fetch_astrology_data(user_id: str, profile_id: str, profile_details: dict):
     """
     Fetch astrology data for a user from DB if exists.
     If not, call astrology API, save the result, and return it.
     """
     try:
         # 1️⃣ Check if data exists in DB
-        existing = await db.astrological_information.find_one({"user_id": user_id})
+        existing = await db.astrological_information.find_one({"user_id": ObjectId(user_id), "profile_id": ObjectId(profile_id)})
         if existing:
             return {
-                "name": user_details['name'],
-                "date_of_birth": user_details["date_of_birth"],
-                "time_of_birth": user_details["time_of_birth"],
-                "lat": user_details.get("lat"),
-                "long": user_details.get("long"),
-                "place_of_birth": user_details.get("place_of_birth"),
-                "gender": user_details["gender"],
+                "name": profile_details['name'],
+                "date_of_birth": profile_details["date_of_birth"],
+                "time_of_birth": profile_details["time_of_birth"],
+                "lat": profile_details.get("lat"),
+                "long": profile_details.get("long"),
+                "place_of_birth": profile_details.get("place_of_birth"),
+                "gender": profile_details["gender"],
                 "ascendant": existing["astro_data"].get("ascendant", ""),
                 "sun_sign": existing["astro_data"].get("sun_sign", ""),
                 "moon_sign": existing["planets_data"].get("Moon", {}).get("sign", ""),
@@ -160,10 +161,10 @@ async def get_or_fetch_astrology_data(user_id: int, user_details: dict):
             }
 
         # 2️⃣ If not exists, call astrology API
-        astrology_data = await fetch_kundli(user_details)
+        astrology_data = await fetch_kundli(profile_details)
 
         # 3️⃣ Save into DB
-        await save_astrology_data(user_id, astrology_data)
+        await save_astrology_data(user_id, profile_id, astrology_data)
 
         return astrology_data
 
@@ -189,6 +190,17 @@ async def fetch_user_details(id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching user details: {str(e)}"
         )
+
+async def fetch_profile_details(user_id, profile_id):
+    profile = await db.user_profiles.find_one({
+        "_id": ObjectId(profile_id),
+        "user_id": ObjectId(user_id)
+    })
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile Not Found")
+
+    return profile
 
 
 async def get_category_from_question(question):
@@ -217,9 +229,10 @@ async def get_category_from_question(question):
     return reply
 
 
-async def save_chat_in_db(user_id, role, conversation_id,  message, category):
+async def save_chat_in_db(user_id, profile_id, role, conversation_id,  message, category):
     await db.chat_history.insert_one({
         "user_id": ObjectId(user_id),
+        "profile_id": ObjectId(profile_id),
         "role": role,
         "conversation_id": ObjectId(conversation_id),
         "message": message,
@@ -228,9 +241,10 @@ async def save_chat_in_db(user_id, role, conversation_id,  message, category):
     })
 
 
-async def create_conversation(user_id, category, first_user_message):
+async def create_conversation(user_id, profile_id, category, first_user_message):
     result = await db.conversations.insert_one({
         "user_id": ObjectId(user_id),
+        "profile_id": ObjectId(profile_id),
         "category": category,
         "title": first_user_message[:50],
         "created_at": datetime.utcnow()
@@ -239,12 +253,12 @@ async def create_conversation(user_id, category, first_user_message):
     return str(result.inserted_id)
 
 
-async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str, conversation_id=None):
+async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str, profile_id: str, conversation_id=None):
     category = await get_category_from_question(user_question)
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
 
     if not conversation_id:
-        conversation_id = await create_conversation(user_id, category, user_question)
+        conversation_id = await create_conversation(user_id, profile_id, category, user_question)
     
     system_prompt_doc = await db.system_prompts.find_one({"category": category})
 
@@ -264,7 +278,8 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     """
     model = genai.GenerativeModel("gemini-2.0-flash")
     past_messages = await db.chat_history.find({
-        "conversation_id": ObjectId(conversation_id)
+        "conversation_id": ObjectId(conversation_id),
+        "profile_id": ObjectId(profile_id)
     }).to_list(length=20)  
     
     history_text = "\n".join(
@@ -289,8 +304,8 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     reply = response.text
 
     await asyncio.gather(
-    save_chat_in_db(user_id, "user", conversation_id, user_question, category),
-    save_chat_in_db(user_id, "assistant", conversation_id, reply, category)    
+    save_chat_in_db(user_id, profile_id, "user", conversation_id, user_question, category),
+    save_chat_in_db(user_id, profile_id, "assistant", conversation_id, reply, category)    
     )
 
     return reply, category, conversation_id

@@ -42,12 +42,14 @@ async def get_reports(category: str = Query(None), current_user = Depends(get_cu
     
 
 @router.post("/user/{id}")
-async def add_user_report(id: str, current_user = Depends(get_current_user)):
+async def add_user_report(id: str, profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         if not id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
         user_id = current_user["_id"]
-        await add_user_report_to_db(id, user_id)
+        if not profile_id:
+            profile_id = user_id
+        await add_user_report_to_db(id, user_id, profile_id)
         return {"message": "User Report Added Successfully"}
     except HTTPException as http_err:
         raise http_err
@@ -59,10 +61,10 @@ async def add_user_report(id: str, current_user = Depends(get_current_user)):
     
 
 @router.get("/user")
-async def get_user_reports(current_user = Depends(get_current_user)):
+async def get_user_reports(profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        reports = await fetch_user_reports(user_id)
+        reports = await fetch_user_reports(user_id, profile_id)
         result_json = json.loads(json_util.dumps(reports))
         return {"message": "User Reports Fetched Successfully", "result": result_json}
     except HTTPException as http_err:

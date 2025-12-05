@@ -10,11 +10,13 @@ from fastapi.responses import FileResponse
 router = APIRouter()
 
 @router.post("/future_prediction")
-async def fetch_astrology_details(user_question_object: UserQuestionObj, user = Depends(get_current_user)):
+async def fetch_astrology_details(user_question_object: UserQuestionObj, profile_id: str = Query(None), user = Depends(get_current_user)):
     try:
         user_id = user["_id"]
+        if profile_id is None:
+            profile_id = user_id
         conversation_id = user_question_object.conversation_id
-        result, category, new_conversation_id = await fetch_predictions_for_user(user_id, user_question_object.user_question, conversation_id)
+        result, category, new_conversation_id = await fetch_predictions_for_user(user_id, profile_id, user_question_object.user_question, conversation_id)
         return {"message": "Prediction Fetched Successfully", "result": result, "category": category, "conversation_id": new_conversation_id}
     except HTTPException as http_err:
         raise http_err
@@ -60,10 +62,10 @@ async def generate_report(id: str, pdf_report: bool = Query(None), current_user 
     
 
 @router.post("/dashboard")
-async def get_dashboard_prediction(current_user = Depends(get_current_user)):
+async def get_dashboard_prediction(profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        text_output, prediction_dict = await fetch_dashboard_predictions(user_id)
+        text_output, prediction_dict = await fetch_dashboard_predictions(user_id, profile_id)
         return {"message": "Predictions Fetched Successfully", "text": text_output, "predictions": prediction_dict}
     except HTTPException as http_err:
         raise http_err
