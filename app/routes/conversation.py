@@ -8,7 +8,7 @@ from bson import json_util
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/1")
 async def get_conversations(current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
