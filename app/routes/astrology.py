@@ -44,13 +44,14 @@ async def get_chat_history(id: str, category: str = Query(None), current_user = 
     
 
 @router.post("/report/{id}")
-async def generate_report(id: str, pdf_report: bool = Query(None), current_user = Depends(get_current_user)):
+async def generate_report(id: str, profile_id: str = Query(None), pdf_report: bool = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         if not id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
-        
-        generated_report = await generate_report_from_ai(id, user_id, pdf_report)
+        if profile_id is None:
+            profile_id = user_id
+        generated_report = await generate_report_from_ai(id, user_id, profile_id, pdf_report)
         return {"message": "Report Generated Successfully", "result": generated_report}
     except HTTPException as http_err:
         raise http_err
@@ -65,6 +66,8 @@ async def generate_report(id: str, pdf_report: bool = Query(None), current_user 
 async def get_dashboard_prediction(profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
+        if profile_id is None:
+            profile_id = user_id
         text_output, prediction_dict = await fetch_dashboard_predictions(user_id, profile_id)
         return {"message": "Predictions Fetched Successfully", "text": text_output, "predictions": prediction_dict}
     except HTTPException as http_err:
