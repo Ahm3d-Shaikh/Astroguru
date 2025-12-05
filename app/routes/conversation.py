@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from app.deps.auth_deps import get_current_user
 from app.services.conversation_service import fetch_conversations, delete_conversation_from_db, edit_conversation_in_db
 from app.models.conversation import ConversationUpdate
@@ -8,11 +8,11 @@ from bson import json_util
 router = APIRouter()
 
 
-@router.get("/1")
-async def get_conversations(current_user = Depends(get_current_user)):
+@router.get("/")
+async def get_conversations(profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        conversations = await fetch_conversations(user_id)
+        conversations = await fetch_conversations(user_id, profile_id)
         result_json = json.loads(json_util.dumps(conversations))
         return {"message": "Conversations Fetched Successfully", "result": result_json}
     except HTTPException as http_err:

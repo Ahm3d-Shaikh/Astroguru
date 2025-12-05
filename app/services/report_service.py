@@ -94,10 +94,11 @@ async def delete_report_from_db(id: str):
         )
     
 
-async def add_user_report_to_db(id, user_id):
+async def add_user_report_to_db(id, user_id, profile_id):
     try:
         await db.user_reports.insert_one({
             "user_id": ObjectId(user_id),
+            "profile_id": ObjectId(profile_id),
             "report_id": ObjectId(id),
         })
     except HTTPException as http_err:
@@ -109,11 +110,16 @@ async def add_user_report_to_db(id, user_id):
         )
     
 
-async def fetch_user_reports(user_id):
+async def fetch_user_reports(user_id, profile_id=None):
     try:
-        user_reports = await db.user_reports.find(
-            {"user_id": ObjectId(user_id)}
-        ).to_list(length=None)
+        query = {
+            "user_id": ObjectId(user_id)
+        }
+
+        if profile_id:
+            query["profile_id"] = profile_id
+
+        user_reports = await db.user_reports.find(query).to_list(length=None)
 
         if len(user_reports) == 0:
             raise HTTPException(
