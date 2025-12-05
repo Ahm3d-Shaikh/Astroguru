@@ -117,7 +117,7 @@ async def fetch_user_reports(user_id, profile_id=None):
         }
 
         if profile_id:
-            query["profile_id"] = profile_id
+            query["profile_id"] = ObjectId(profile_id)
 
         user_reports = await db.user_reports.find(query).to_list(length=None)
 
