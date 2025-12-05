@@ -54,11 +54,11 @@ async def generate_report_from_ai(id, user_id, profile_id, pdf_report):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     
     # If profile_id == user_id → use users table
-    if profile_id == id:
-        profile_details = await fetch_user_details(id)
+    if profile_id == user_id:
+        profile_details = await fetch_user_details(user_id)
     else:
-        profile_details = await fetch_profile_details(id, profile_id)
-    astrology_data = await get_or_fetch_astrology_data(profile_id, profile_details)
+        profile_details = await fetch_profile_details(user_id, profile_id)
+    astrology_data = await get_or_fetch_astrology_data(user_id, profile_id, profile_details)
     generated_report = await generate_report_helper(profile_details, astrology_data, user_report, pdf_report)
     return generated_report
 
@@ -69,6 +69,6 @@ async def fetch_dashboard_predictions(user_id, profile_id):
         profile_details = await fetch_user_details(user_id)
     else:
         profile_details = await fetch_profile_details(user_id, profile_id)
-    astrology_data = await get_or_fetch_astrology_data(profile_id, profile_details)
+    astrology_data = await get_or_fetch_astrology_data(user_id, profile_id, profile_details)
     text_output, prediction_dict = await generate_predictions_for_homepage(profile_details, astrology_data)
     return text_output, prediction_dict
