@@ -34,6 +34,7 @@ async def edit_conversation_in_db(id, user_id, update_data):
         updated_conversation = await db.conversations.find_one({"_id": ObjectId(id), "user_id": ObjectId(user_id)})
         updated_conversation["_id"] = str(updated_conversation["_id"])
         updated_conversation["user_id"] = str(updated_conversation["user_id"])
+        updated_conversation["profile_id"] = str(updated_conversation["profile_id"])
         return updated_conversation
     except HTTPException as http_err:
         raise http_err
