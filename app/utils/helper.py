@@ -1,7 +1,8 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from app.clients.openai_client import openai_client
-from app.clients.gemini_client import genai
+from app.clients.gemini_client import client
+from google.genai import types
 import os
 import httpx
 from base64 import b64encode
@@ -14,7 +15,6 @@ import asyncio
 import io
 import re
 from app.clients.aws import s3_client, S3_BUCKET
-
 
 ASTRO_API_USER_ID = os.getenv("ASTROLOGY_API_USER_ID")
 ASTRO_API_KEY = os.getenv("ASTROLOGY_API_KEY")
@@ -206,23 +206,31 @@ async def fetch_profile_details(user_id, profile_id):
 async def get_category_from_question(question):
     category_list = await fetch_categories()
     system_prompt = f"""
-    You have to fetch the category from the question given to you. These are the only categories you have to choose from:
+    You are a strict classifier. Your job is to choose ONE category for the question.
+
+    These are the ONLY allowed categories:
     {category_list}
 
-    Just give a one word answer. For Example, "When would I become a millionaire?". You just have to answer "career".
+    Rules:
+    - Reply with EXACTLY one word: the category name.
+    - Do NOT explain.
+    - Do NOT add punctuation or quotes.
+    - If the question fits multiple categories, choose the BEST one.
+    Example:
+    Q: "When would I become a millionaire?"
+    A: career
     """
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    prompt = [
-        system_prompt,
-        question
-    ]
     
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.types.GenerationConfig(
-            temperature=0.2,
-            max_output_tokens=1000
-        )
+    config = types.GenerateContentConfig(
+        temperature=0.1,
+        max_output_tokens=64,
+        system_instruction=system_prompt,
+    )
+
+    response = await client.aio.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=question,
+        config=config,
     )
 
     reply = response.text.strip().strip('"').strip("'")  # <-- normalize
@@ -275,8 +283,12 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     - NEVER speak in third person (avoid: 'Nisha's chart', 'their chart', etc.).
     - ALWAYS give insights as if you are advising the user directly.
     - Never respond to anything unrelated to astrology or predictions
+    - ALWAYS mention the chart and house when referencing planets (You need to look in "horoscope_charts" in astrology_summary to look for these charts)
+    - ALWAYS use all the 'horoscopic_charts' as context when replying.
+    - ALWAYS provide astrological references in readable text format. e.g.,
+        "Based on D1 chart, Sun is in Sagittarius in house 1", not arrays.
     """
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    
     past_messages = await db.chat_history.find({
         "conversation_id": ObjectId(conversation_id),
         "profile_id": ObjectId(profile_id)
@@ -286,19 +298,23 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         [f"{msg['role']}: {msg['message']}" for msg in past_messages]
     )
     
-    prompt = [
-        system_prompt,
+    contents = [
         f"Chat History: \n{history_text}\n\n"
         f"Here is my astrological data:\n{astrology_summary}\n\n"
         f"Please answer this question based on my data:\n{user_question}"
     ]
 
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.types.GenerationConfig(
-            temperature=0.2,
-            max_output_tokens=1000
-        )
+
+    config = types.GenerateContentConfig(
+        temperature = 0.2,
+        max_output_tokens = 1000,
+        system_instruction = system_prompt
+    )
+
+    response = await client.aio.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=contents,
+        config=config,
     )
 
     reply = response.text
@@ -327,21 +343,24 @@ def markdown_to_plain(text: str) -> str:
 async def generate_report_helper(user_details, astrology_data, user_report, pdf_report):
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
     prompt = user_report.get("prompt", "You are an astrology report generator.")
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    prompt_for_gemini = [
-        prompt,
+    contents = [
         f"Here is my astrological data:\n{astrology_summary}\n\n",
         f"Here's my personal data: {user_details}\n\n",
         "Generate a detailed, warm, human-sounding astrology report."
     ]
-    response = model.generate_content(
-        prompt_for_gemini,
-        generation_config=genai.types.GenerationConfig(
-            temperature=0.2,
-            max_output_tokens=2000
-        )
+
+    config = types.GenerateContentConfig(
+        temperature=0.2,
+        max_output_tokens=2000,
+        system_instruction=prompt,
     )
 
+    response = await client.aio.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=contents,
+        config=config,
+    )
+    
     report_text = response.text
     if not pdf_report or pdf_report is False:
         return report_text
@@ -458,10 +477,9 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
         astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
         prediction_prompt_doc = await db.predictions.find_one({"name": "Dashboard Overview"})
         prompt = prediction_prompt_doc["prompt"]
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        
 
-        prompt_for_gemini = [
-            prompt,
+        contents = [
             f"Here is my astrological data:\n{astrology_summary}\n\n",
             f"Here's my personal data: {user_details}\n\n",
             "Give me predictions about me. Return a JSON object with two keys:\n"
@@ -484,13 +502,18 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
         ]
 
 
-        response = model.generate_content(
-        prompt_for_gemini,
-        generation_config=genai.types.GenerationConfig(
+        config = types.GenerateContentConfig(
             temperature=0.2,
-            max_output_tokens=1000
+            max_output_tokens=1000,
+            system_instruction=prompt,
         )
+
+        response = await client.aio.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=contents,
+            config=config,
         )
+
 
         content = response.text
         content_cleaned = re.sub(r"^```json\s*|```$", "", content.strip(), flags=re.MULTILINE)
