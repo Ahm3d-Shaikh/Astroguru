@@ -23,7 +23,7 @@ async def fetch_predictions_for_user(id, profile_id, user_question, conversation
         )
     
 
-async def fetch_chat_history_for_user(category, id, user_id, profile_id):
+async def fetch_chat_history_for_user(category, id, user_id):
     try:
         query = {
             "user_id": ObjectId(user_id),
