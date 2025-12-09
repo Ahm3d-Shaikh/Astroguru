@@ -70,7 +70,7 @@ async def fetch_kundli(user_details: dict):
     }
 
 
-    D_CHART_IDS = [1,2,3,4,5,6,7,8,9,10,11,12,16,20,24,27,30,40,45,60]
+    D_CHART_IDS = ["d1","d2","d3","d4","d5","d6","d7","d8","d9","d10","d11","d12","d16","d20","d24","d27","d30","d40","d45","d60"]
 
     async with httpx.AsyncClient() as client:
 
@@ -95,8 +95,8 @@ async def fetch_kundli(user_details: dict):
         async def fetch_chart(chart_id):
             r = await client.post(f"{BASE_URL}/horo_chart/{chart_id}", json=payload, headers=headers)
             if r.status_code == 200 and r.json():
-                return f"D{chart_id}", r.json()
-            return f"D{chart_id}", {"error": "Failed to fetch"}
+                return chart_id, r.json()
+            return chart_id, {"error": "Failed to fetch"}
 
         d_tasks = [fetch_chart(cid) for cid in D_CHART_IDS]
         d_results = await asyncio.gather(*d_tasks)
