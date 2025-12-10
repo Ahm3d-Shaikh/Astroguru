@@ -108,6 +108,8 @@ async def generate_compatibility_report(user_id, payload, pdf_report):
             }
 
         compatibility_doc = await db.compatibilities.find_one({"type": type})
+        if not compatibility_doc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compatibility Not Found")
         prompt = compatibility_doc["prompt"]
 
         contents = [
