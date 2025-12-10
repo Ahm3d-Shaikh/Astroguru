@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import astrology, auth, prompt, admin, report, prediction, user, profile, conversation
+from app.routes import astrology, auth, prompt, admin, report, prediction, user, profile, conversation, compatibility
 
 app = FastAPI()
 
@@ -21,6 +21,7 @@ app.include_router(report.router, prefix="/report")
 app.include_router(user.router, prefix="/user")
 app.include_router(profile.router, prefix="/user/profile")
 app.include_router(conversation.router, prefix="/conversation-list")
+app.include_router(compatibility.router, prefix="/compatibility")
 
 @app.get("/")
 async def root():

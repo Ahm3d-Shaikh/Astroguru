@@ -106,6 +106,7 @@ async def fetch_kundli(user_details: dict):
 
     planets_data = {p['name']: p for p in results["planets"]}
     moon_sign = planets_data.get("Moon", {}).get("sign", "")
+    sun_sign = planets_data.get("Sun", {}).get("sign", "")
 
     astrology_data = {
         "name": user_details["name"],
@@ -116,7 +117,7 @@ async def fetch_kundli(user_details: dict):
 
         "astro_details": results["astro"],
         "ascendant": results["astro"].get("ascendant", ""),
-        "sun_sign": results["astro"].get("sign", ""),
+        "sun_sign": sun_sign,
         "moon_sign": moon_sign,
 
         "planet_positions": planets_data,
@@ -150,7 +151,7 @@ async def get_or_fetch_astrology_data(user_id: str, profile_id: str, profile_det
                 "place_of_birth": profile_details.get("place_of_birth"),
                 "gender": profile_details["gender"],
                 "ascendant": existing["astro_data"].get("ascendant", ""),
-                "sun_sign": existing["astro_data"].get("sun_sign", ""),
+                "sun_sign": existing["planets_data"].get("Sun", {}).get("sign", ""),
                 "moon_sign": existing["planets_data"].get("Moon", {}).get("sign", ""),
                 "planet_positions": existing["planets_data"],
                 "current_vdasha": existing["current_vdasha_data"],
