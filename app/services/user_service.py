@@ -70,50 +70,20 @@ async def fetch_logged_in_user_details(user_id):
 async def fetch_dashboard_details_for_user(id):
     try:
         user_details = await fetch_user_details(id)
-        astrology_data = await get_or_fetch_astrology_data(id, id, user_details)
-        astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
-
-        system_prompt = f"""
-        You are a Vedic Astrologer. You will be given the user details and astrology details for the user. 
-        You must describe each chart. The charts are:
-
-        {["d1","d2","d3","d4","d5","d6","d7","d8","d9","d10","d11","d12","d16","d20","d24","d27","d30","d40","d45","d60"]}
-
-        Note:
-        - ALWAYS respond in third person. For example: "This person's Rashi Chart (D1) reflects the overall personality."
-        """
-
-
-        contents = [
-            f"User Details:\n{user_details}",
-            f"Astrology Data:\n{astrology_summary}"
-        ]
-        
-        config = types.GenerateContentConfig(
-        temperature = 0.2,
-        max_output_tokens = 10000,
-        system_instruction = system_prompt
-        )
-
-        gemini_task = client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=config,
-        )
+        astrology_data_task = get_or_fetch_astrology_data(id, id, user_details)
         conversations_task = fetch_conversations(id, None)
         user_reports_task = fetch_user_reports(id, None)
 
-        gemini_response, conversations_raw, user_reports_raw = await asyncio.gather(
-            gemini_task,
+        astrology_data, conversations_raw, user_reports_raw = await asyncio.gather(
+            astrology_data_task,
             conversations_task,
             user_reports_task
         )
-        charts = gemini_response.text
         conversations = convert_mongo(conversations_raw)
         user_reports = convert_mongo(user_reports_raw)
         
         return {
-            "charts": charts,
+            "charts": astrology_data.get("horoscope_charts"),
             "conversations": conversations,
             "reports": user_reports
         }

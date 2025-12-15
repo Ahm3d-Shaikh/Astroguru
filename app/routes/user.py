@@ -2,6 +2,7 @@ from fastapi import HTTPException, APIRouter, status, Depends, Body, Query
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
 from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user
+from app.utils.helper import fetch_chart_image
 import json
 from bson import json_util
 from app.models.user import UserUpdate
@@ -56,6 +57,25 @@ async def get_dashboard_details_for_user(id: str, current_user = Depends(get_cur
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching dashboard user details: {str(e)}"
+        )
+    
+@router.post("/user-details/chart-image/{id}")
+async def get_chart_image(id: str, chart: str = Query(), current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+    
+        if not chart:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Chart Is Required")
+        
+        chart_image = await fetch_chart_image(id, chart)
+        return {"message": "Chart Image Fetched Successfully", "result": chart_image}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching chart image: {str(e)}"
         )
 
 @router.get("/{id}")

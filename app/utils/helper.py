@@ -51,6 +51,71 @@ async def save_astrology_data(user_id: str, profile_id: str, astrology_data: dic
         )
 
 
+def normalize_chart(chart_data: list):
+    if not chart_data:
+        return {
+            "ascendant": None,
+            "houses": []
+        }
+
+    ascendant = chart_data[0].get("sign_name")
+
+    houses = []
+    for idx, house in enumerate(chart_data):
+        houses.append({
+            **house,
+            "house_number": idx + 1
+        })
+
+    return {
+        "ascendant": ascendant,
+        "houses": houses
+    }
+
+
+async def fetch_chart_image(id, chart):
+    try:
+        user_details = await fetch_user_details(id)
+        auth_header = b64encode(f"{ASTRO_API_USER_ID}:{ASTRO_API_KEY}".encode()).decode()
+        headers = {
+            "Authorization": f"Basic {auth_header}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "day": int(user_details["date_of_birth"].split("-")[2]),
+            "month": int(user_details["date_of_birth"].split("-")[1]),
+            "year": int(user_details["date_of_birth"].split("-")[0]),
+            "hour": int(user_details["time_of_birth"].split(":")[0]),
+            "min": int(user_details["time_of_birth"].split(":")[1]),
+            "lat": user_details.get("lat"),  
+            "lon": user_details.get("long"), 
+            "tzone": user_details.get("tzone", 5.0),
+            "image_type": "png"
+        }
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                f"{BASE_URL}/horo_chart_image/{chart}",
+                json=payload,
+                headers=headers
+            )
+
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Failed to fetch horoscope chart image"
+            )
+        chart = response.json()
+        return chart["chart_url"]
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching chart image from astrology api: {str(e)}"
+        )
+
 async def fetch_kundli(user_details: dict):
     auth_header = b64encode(f"{ASTRO_API_USER_ID}:{ASTRO_API_KEY}".encode()).decode()
     headers = {
@@ -95,7 +160,8 @@ async def fetch_kundli(user_details: dict):
         async def fetch_chart(chart_id):
             r = await client.post(f"{BASE_URL}/horo_chart/{chart_id}", json=payload, headers=headers)
             if r.status_code == 200 and r.json():
-                return chart_id, r.json()
+                normalized = normalize_chart(r.json())
+                return chart_id, normalized
             return chart_id, {"error": "Failed to fetch"}
 
         d_tasks = [fetch_chart(cid) for cid in D_CHART_IDS]
