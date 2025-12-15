@@ -28,13 +28,13 @@ async def add_compatibility_prompt(payload):
         )
     
 
-async def fetch_compatibilities(is_comparison: bool):
+async def fetch_compatibilities(is_comparison: bool, type: str):
     try:
         cursor = db.compatibilities.find({"is_comparison": is_comparison})
         compatibilities = await cursor.to_list(length=None)
 
         if not compatibilities:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Compatibilities Found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No {type} Found")
         return compatibilities
     except HTTPException as http_err:
         raise http_err
@@ -93,9 +93,54 @@ async def fetch_compatibility_by_id(id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching compatibility by id: {str(e)}"
         )
-    
 
-async def generate_compatibility_report(user_id, payload, pdf_report):
+
+async def fetch_user_compatibility_reports(user_id, is_comparison):
+    try:
+        pipeline = [
+            {"$match": {"user_id": ObjectId(user_id), "is_comparison": is_comparison}},
+            {
+                "$lookup": {
+                    "from": "user_profiles", 
+                    "localField": "profile_id",
+                    "foreignField": "_id",
+                    "as": "profiles"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "compatibilities", 
+                    "localField": "compatibility_id",
+                    "foreignField": "_id",
+                    "as": "compatibility"
+                }
+            },
+            {"$unwind": {"path": "$compatibility", "preserveNullAndEmptyArrays": True}}
+        ]
+        cursor = db.user_compatibility_reports.aggregate(pipeline)
+        user_reports = await cursor.to_list(length=None)
+        if not user_reports:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Reports Not Found")
+        return user_reports
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user compatibility reports from db: {str(e)}"
+        ) 
+
+async def save_compatibility_user_report(user_id, compatibility_id, profile_id, is_comparison):
+    profile_ids = [ObjectId(pid) if isinstance(pid, str) else pid for pid in profile_id]
+    await db.user_compatibility_reports.insert_one({
+        "user_id": ObjectId(user_id),
+        "profile_id": profile_ids,
+        "compatibility_id": compatibility_id,
+        "is_comparison": is_comparison,
+        "created_at": datetime.utcnow()
+    })
+
+async def generate_compatibility_report(user_id, payload, pdf_report, report_type):
     try:
         profiles = dict()
         type = payload.type
@@ -108,14 +153,14 @@ async def generate_compatibility_report(user_id, payload, pdf_report):
                 "astrology_summary": astrology_summary
             }
 
-        compatibility_doc = await db.compatibilities.find_one({"type": type})
+        compatibility_doc = await db.compatibilities.find_one({"type": type, "is_comparison": payload.is_comparison})
         if not compatibility_doc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Compatibility Not Found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{report_type} Not Found")
         prompt = compatibility_doc["prompt"]
 
         contents = [
             f"Profiles:\n\n {profiles}",
-            f"Use the profile details and astrological details to generate a detailed, warm, human-sounding compatibility report."
+            f"Use the profile details and astrological details to generate a detailed, warm, human-sounding {report_type} report."
         ]
 
         config = types.GenerateContentConfig(
@@ -129,7 +174,7 @@ async def generate_compatibility_report(user_id, payload, pdf_report):
             contents=contents,
             config=config,
         )
-
+        await save_compatibility_user_report(user_id, compatibility_doc["_id"], payload.profile_id, payload.is_comparison)
         report_text = response.text
         if not pdf_report or pdf_report is False:
             return report_text

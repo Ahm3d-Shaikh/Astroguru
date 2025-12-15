@@ -15,3 +15,4 @@ class CompatibilityUpdate(BaseModel):
 class CompatibilityReportCreate(BaseModel):
     profile_id: List[str]
     type: str
+    is_comparison: Optional[bool] = False

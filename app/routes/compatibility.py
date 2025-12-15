@@ -3,7 +3,7 @@ from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
 import json
 from bson import json_util
-from app.services.compatibility_service import add_compatibility_prompt, fetch_compatibilities, delete_compatibility_from_db, update_compatibility_by_id, fetch_compatibility_by_id, generate_compatibility_report
+from app.services.compatibility_service import add_compatibility_prompt, fetch_compatibilities, delete_compatibility_from_db, update_compatibility_by_id, fetch_compatibility_by_id, generate_compatibility_report, fetch_user_compatibility_reports
 from app.models.compatibility import CompatibilityCreate, CompatibilityUpdate, CompatibilityReportCreate
 
 router = APIRouter()
@@ -14,9 +14,9 @@ async def add_compatibility(payload: CompatibilityCreate, current_user = Depends
     try:
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to use this feature")
-        
+        type = "Compatibility" if payload.is_comparison is False else "Comparison"
         await add_compatibility_prompt(payload)
-        return {"message": "Compatibility Added Successfully"}
+        return {"message": f"{type} Added Successfully"}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -30,8 +30,9 @@ async def add_compatibility(payload: CompatibilityCreate, current_user = Depends
 async def get_compatibility_between_profiles(payload: CompatibilityReportCreate, pdf_report: bool = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        result = await generate_compatibility_report(user_id, payload, pdf_report)
-        return {"message": "Compatibility Report Fetched Successfully", "result": result}
+        type = "Compatibility" if payload.is_comparison is False else "Comparison"
+        result = await generate_compatibility_report(user_id, payload, pdf_report, type)
+        return {"message": f"{type} Report Fetched Successfully", "result": result}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -39,13 +40,30 @@ async def get_compatibility_between_profiles(payload: CompatibilityReportCreate,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while generating compatibility report: {str(e)}"
         )
+    
+
+@router.get("/report")
+async def get_user_compatibility_reports(is_comparison: bool = Query(False), current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        user_reports = await fetch_user_compatibility_reports(user_id, is_comparison)
+        result_json = json.loads(json_util.dumps(user_reports))
+        return {"message": "User Reports Fetched Successfully", "result": result_json}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user compatibility reports: {str(e)}"
+        )
 
 @router.get("/")
 async def get_compatibilities(is_comparison: bool = Query(False), current_user = Depends(get_current_user)):
     try:
-        compatibilities = await fetch_compatibilities(is_comparison)
+        type = "Compatibilities" if is_comparison is False else "Comparisons"
+        compatibilities = await fetch_compatibilities(is_comparison, type)
         result_json = json.loads(json_util.dumps(compatibilities))
-        return {"message": "Compatibilities Fetched Successfully", "result": result_json}
+        return {"message": f"{type} Fetched Successfully", "result": result_json}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
