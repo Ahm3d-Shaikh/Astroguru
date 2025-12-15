@@ -41,9 +41,9 @@ async def get_compatibility_between_profiles(payload: CompatibilityReportCreate,
         )
 
 @router.get("/")
-async def get_compatibilities(current_user = Depends(get_current_user)):
+async def get_compatibilities(is_comparison: bool = Query(False), current_user = Depends(get_current_user)):
     try:
-        compatibilities = await fetch_compatibilities()
+        compatibilities = await fetch_compatibilities(is_comparison)
         result_json = json.loads(json_util.dumps(compatibilities))
         return {"message": "Compatibilities Fetched Successfully", "result": result_json}
     except HTTPException as http_err:

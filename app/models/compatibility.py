@@ -4,6 +4,7 @@ from typing import Optional, List
 class CompatibilityCreate(BaseModel):
     type: str
     prompt: str
+    is_comparison: Optional[bool] = False
 
 
 class CompatibilityUpdate(BaseModel):

@@ -16,6 +16,7 @@ async def add_compatibility_prompt(payload):
         await db.compatibilities.insert_one({
             "type": payload.type,
             "prompt": payload.prompt,
+            "is_comparison": payload.is_comparison,
             "created_at": datetime.utcnow()
         })
     except HTTPException as http_err:
@@ -27,9 +28,9 @@ async def add_compatibility_prompt(payload):
         )
     
 
-async def fetch_compatibilities():
+async def fetch_compatibilities(is_comparison: bool):
     try:
-        cursor = db.compatibilities.find()
+        cursor = db.compatibilities.find({"is_comparison": is_comparison})
         compatibilities = await cursor.to_list(length=None)
 
         if not compatibilities:
