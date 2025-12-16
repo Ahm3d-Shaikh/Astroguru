@@ -2,7 +2,7 @@ from fastapi import HTTPException, status, Body
 from app.db.mongo import db
 from bson import ObjectId
 from datetime import datetime
-from app.utils.helper import fetch_profile_details, get_or_fetch_astrology_data, markdown_to_plain
+from app.utils.helper import fetch_profile_details, get_or_fetch_astrology_data, markdown_to_plain, get_zodiac_sign
 from app.clients.gemini_client import client
 from google.genai import types
 from fpdf import FPDF
@@ -121,6 +121,11 @@ async def fetch_user_compatibility_reports(user_id, is_comparison):
         user_reports = await cursor.to_list(length=None)
         if not user_reports:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Reports Not Found")
+        
+        for report in user_reports:
+            for profile in report.get("profiles", {}):
+                dob = profile.get("date_of_birth")
+                profile["zodiac_sign"] = get_zodiac_sign(dob) if dob else None
         return user_reports
     except HTTPException as http_err:
         raise http_err
