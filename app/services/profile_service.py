@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
+from app.utils.helper import get_zodiac_sign
 from datetime import datetime
 from bson import ObjectId
 
@@ -47,6 +48,9 @@ async def get_profiles_for_user(user_id):
         if not profiles:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Profiles Found For The User")
         
+        for profile in profiles:
+            dob = profile.get("date_of_birth")
+            profile["zodiac_sign"] = get_zodiac_sign(dob) if dob else None
         return profiles
     except HTTPException as http_err:
         raise http_err
@@ -65,6 +69,7 @@ async def get_specific_profile_from_db(id, user_id):
         
         profile["_id"] = str(profile["_id"])
         profile["user_id"] = str(profile["user_id"])
+        profile["zodiac_sign"] = get_zodiac_sign(profile.get("date_of_birth"))
         return profile
     except HTTPException as http_err:
         raise http_err

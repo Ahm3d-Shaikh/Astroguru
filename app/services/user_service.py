@@ -103,6 +103,7 @@ async def delete_user_by_id(id):
         await db.astrological_information.delete_many({"user_id": ObjectId(id)})
         await db.user_profiles.delete_many({"user_id": ObjectId(id)})
         await db.user_reports.delete_many({"user_id": ObjectId(id)})
+        await db.user_compatibility_reports.delete_many({"user_id": ObjectId(id)})
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

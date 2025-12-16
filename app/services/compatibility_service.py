@@ -135,15 +135,24 @@ async def fetch_user_compatibility_reports(user_id, is_comparison):
             detail=f"Error while fetching user compatibility reports from db: {str(e)}"
         ) 
 
-async def save_compatibility_user_report(user_id, compatibility_id, profile_id, is_comparison):
+async def save_compatibility_user_report(user_id, compatibility_id, profile_id, is_comparison, file_url):
     profile_ids = [ObjectId(pid) if isinstance(pid, str) else pid for pid in profile_id]
-    await db.user_compatibility_reports.insert_one({
+
+    cursor = db.user_compatibility_reports.find({
         "user_id": ObjectId(user_id),
-        "profile_id": profile_ids,
-        "compatibility_id": compatibility_id,
-        "is_comparison": is_comparison,
-        "created_at": datetime.utcnow()
+        "compatibility_id": ObjectId(compatibility_id),
+        "pdf_report": {"$ne": None} 
     })
+    existing_docs = await cursor.to_list(length=None)
+    if not existing_docs:
+        await db.user_compatibility_reports.insert_one({
+            "user_id": ObjectId(user_id),
+            "profile_id": profile_ids,
+            "compatibility_id": ObjectId(compatibility_id),
+            "is_comparison": is_comparison,
+            "pdf_report": file_url,  
+            "created_at": datetime.utcnow()
+        })
 
 async def generate_compatibility_report(user_id, payload, pdf_report, report_type):
     try:
@@ -179,7 +188,6 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
             contents=contents,
             config=config,
         )
-        await save_compatibility_user_report(user_id, compatibility_doc["_id"], payload.profile_id, payload.is_comparison)
         report_text = response.text
         if not pdf_report or pdf_report is False:
             return report_text
@@ -259,6 +267,7 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         )
 
         file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"
+        await save_compatibility_user_report(user_id, compatibility_doc["_id"], payload.profile_id, payload.is_comparison, file_url)
         return file_url
 
 
