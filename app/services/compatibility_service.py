@@ -4,10 +4,12 @@ from bson import ObjectId
 from datetime import datetime
 from app.utils.helper import fetch_profile_details, get_or_fetch_astrology_data, markdown_to_plain, get_zodiac_sign
 from app.clients.gemini_client import client
+from app.utils.mongo import convert_mongo
 from google.genai import types
 from fpdf import FPDF
 import io
 import re
+import json
 from app.clients.aws import s3_client, S3_BUCKET
 
 
@@ -137,49 +139,62 @@ async def fetch_user_compatibility_reports(user_id, is_comparison):
 
 async def save_compatibility_user_report(user_id, compatibility_id, profile_id, is_comparison, file_url):
     profile_ids = [ObjectId(pid) if isinstance(pid, str) else pid for pid in profile_id]
-
-    cursor = db.user_compatibility_reports.find({
+    await db.user_compatibility_reports.insert_one({
         "user_id": ObjectId(user_id),
+        "profile_id": profile_ids,
         "compatibility_id": ObjectId(compatibility_id),
-        "pdf_report": {"$ne": None} 
+        "is_comparison": is_comparison,
+        "pdf_report": file_url,  
+        "created_at": datetime.utcnow()
     })
-    existing_docs = await cursor.to_list(length=None)
-    if not existing_docs:
-        await db.user_compatibility_reports.insert_one({
-            "user_id": ObjectId(user_id),
-            "profile_id": profile_ids,
-            "compatibility_id": ObjectId(compatibility_id),
-            "is_comparison": is_comparison,
-            "pdf_report": file_url,  
-            "created_at": datetime.utcnow()
-        })
 
 async def generate_compatibility_report(user_id, payload, pdf_report, report_type):
     try:
         profiles = dict()
         type = payload.type
-        for profile in payload.profile_id:
-            profile_details = await fetch_profile_details(user_id, profile)
-            astrology_data = await get_or_fetch_astrology_data(user_id, profile, profile_details)
-            astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
-            profiles[profile] = {
-                "profile_details": profile_details,
-                "astrology_summary": astrology_summary
-            }
 
         compatibility_doc = await db.compatibilities.find_one({"type": type, "is_comparison": payload.is_comparison})
         if not compatibility_doc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{report_type} Not Found")
         prompt = compatibility_doc["prompt"]
 
+        profile_ids = [ObjectId(pid) if isinstance(pid, str) else pid for pid in payload.profile_id]
+        cursor = db.user_compatibility_reports.find({
+            "user_id": ObjectId(user_id),
+            "compatibility_id": ObjectId(compatibility_doc["_id"]),
+            "pdf_report": {"$ne": None},
+            "profile_id": {"$all": profile_ids} 
+
+        })
+        existing_docs = await cursor.to_list(length=None)
+
+        if existing_docs:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{report_type} Report For These Profiles Already Exists")
+        
+        for profile in payload.profile_id:
+            profile_details = await fetch_profile_details(user_id, profile)
+            astrology_data = await get_or_fetch_astrology_data(user_id, profile, profile_details)
+            astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
+
+            profile_key = str(profile)  
+
+            profiles[profile_key] = {
+                "profile_details": profile_details,
+                "astrology_summary": astrology_summary
+            }
+
+        safe_profiles = convert_mongo(profiles)
+        profiles_str = json.dumps(safe_profiles, indent=2) 
+
         contents = [
-            f"Profiles:\n\n {profiles}",
-            f"Use the profile details and astrological details to generate a detailed, warm, human-sounding {report_type} report."
+            f"Profiles:\n\n {profiles_str}",
+            f"Number Of Profiles: {len(profiles.keys())}",
+            f"Use all the profile details and astrological details to generate a detailed, warm, human-sounding {report_type} report."
         ]
 
         config = types.GenerateContentConfig(
         temperature = 0.2,
-        max_output_tokens = 2000,
+        max_output_tokens = 4000,
         system_instruction = prompt
         )
 

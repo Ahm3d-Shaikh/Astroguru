@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 from datetime import datetime
-from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details
+from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign
 from app.services.conversation_service import fetch_conversations
 from app.services.report_service import fetch_user_reports
 from app.utils.mongo import convert_mongo
@@ -57,6 +57,7 @@ async def fetch_logged_in_user_details(user_id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
         
         user["_id"] = str(user["_id"])
+        user["zodiac_sign"] = get_zodiac_sign(user.get("date_of_birth"))
         return user
     except HTTPException as http_err:
         raise http_err

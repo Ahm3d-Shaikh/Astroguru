@@ -266,7 +266,6 @@ async def fetch_profile_details(user_id, profile_id):
 
     if not profile:
         raise HTTPException(status_code=404, detail="Profile Not Found")
-
     return profile
 
 
@@ -562,8 +561,7 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
                 "element": "<string>",
                 "moon_sign": "<string>",
                 "polarity": "<string>",
-                "modality": "<string>",
-                "zodiac_sign": "<string>"
+                "modality": "<string>"
             }"""
 
         ]
@@ -593,6 +591,7 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
             text_output = content
             prediction_dict = {}
 
+        prediction_dict["zodiac_sign"] = get_zodiac_sign(user_details.get("date_of_birth"))
         return text_output, prediction_dict
     except HTTPException as http_err:
         raise http_err
