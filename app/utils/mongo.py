@@ -1,4 +1,6 @@
 from bson import ObjectId
+from datetime import datetime, date
+
 
 
 def convert_mongo(item):
@@ -8,4 +10,6 @@ def convert_mongo(item):
         return {k: convert_mongo(v) for k, v in item.items()}
     if isinstance(item, ObjectId):
         return str(item)
+    if isinstance(item, (datetime, date)):
+        return item.isoformat() 
     return item
