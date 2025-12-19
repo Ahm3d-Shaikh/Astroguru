@@ -557,7 +557,6 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
                 "lucky_color_hex": <string> For Example: #008000
                 "lucky_time": "<string>" For Example: 03:00 AM,
                 "name": "<string>",
-                "sun_sign": "<string>",
                 "element": "<string>",
                 "moon_sign": "<string>",
                 "polarity": "<string>",
@@ -590,8 +589,9 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
         except json.JSONDecodeError:
             text_output = content
             prediction_dict = {}
-
-        prediction_dict["zodiac_sign"] = get_zodiac_sign(user_details.get("date_of_birth"))
+        zodiac_sign = get_zodiac_sign(user_details.get("date_of_birth"))
+        prediction_dict["zodiac_sign"] = zodiac_sign
+        prediction_dict["sun_sign"] = zodiac_sign
         return text_output, prediction_dict
     except HTTPException as http_err:
         raise http_err
