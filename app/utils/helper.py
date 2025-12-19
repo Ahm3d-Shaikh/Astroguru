@@ -259,10 +259,16 @@ async def fetch_user_details(id):
         )
 
 async def fetch_profile_details(user_id, profile_id):
-    profile = await db.user_profiles.find_one({
-        "_id": ObjectId(profile_id),
-        "user_id": ObjectId(user_id)
-    })
+    profile = None
+    if user_id == profile_id:
+        profile = await db.users.find_one({
+            "_id": ObjectId(user_id)
+        })
+    else:
+        profile = await db.user_profiles.find_one({
+            "_id": ObjectId(profile_id),
+            "user_id": ObjectId(user_id)
+        })
 
     if not profile:
         raise HTTPException(status_code=404, detail="Profile Not Found")
