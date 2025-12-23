@@ -74,7 +74,8 @@ async def request_otp(payload: OtpRequest):
                 "phone": payload.phone,
                 "country_code": payload.country_code,
                 "created_at": datetime.utcnow(),
-                "is_onboarded": False
+                "is_onboarded": False,
+                "is_enabled": True
             })
             user_id = res.inserted_id
         else:
@@ -110,6 +111,8 @@ async def login(payload: LoginRequest):
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found. Please Request OTP Again")
         
+        if not user["is_enabled"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account Disabled")
         otp = await db.otp_table.find_one({"user_id": user["_id"], "otp": payload.otp})
         if not otp:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
