@@ -114,15 +114,18 @@ async def delete_user_by_id(id):
         )
 
 
-async def delete_logged_in_user_by_id(id):
+async def delete_logged_in_user_by_id(id: str):
     try:
-        await db.users.delete_one({"_id": ObjectId(id)})
-        await db.conversations.delete_many({"user_id": ObjectId(id)})
-        await db.chat_history.delete_many({"user_id": ObjectId(id)})
-        await db.astrological_information.delete_many({"user_id": ObjectId(id)})
-        await db.user_profiles.delete_many({"user_id": ObjectId(id)})
-        await db.user_reports.delete_many({"user_id": ObjectId(id)})
-        await db.user_compatibility_reports.delete_many({"user_id": ObjectId(id)})
+        result = await db.users.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"is_enabled": False}}
+        )
+
+        if result.matched_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
