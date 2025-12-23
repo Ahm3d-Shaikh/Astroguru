@@ -1,7 +1,7 @@
 from fastapi import HTTPException, APIRouter, status, Depends, Body, Query
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
-from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user
+from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id
 from app.utils.helper import fetch_chart_image
 import json
 from bson import json_util
@@ -118,6 +118,19 @@ async def delete_user(id: str, current_user = Depends(get_current_user)):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         
         await delete_user_by_id(id)
+        return {"message": "User Deleted Successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while deleting user: {str(e)}"
+        )
+    
+
+@router.delete("/")
+async def delete_logged_in_user(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await delete_logged_in_user_by_id(user_id)
         return {"message": "User Deleted Successfully"}
     except Exception as e:
         raise HTTPException(
