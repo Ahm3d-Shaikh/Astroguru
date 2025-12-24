@@ -78,11 +78,20 @@ async def fetch_dashboard_details_for_user(id):
         astrology_data, conversations_raw, user_reports_raw = await asyncio.gather(
             astrology_data_task,
             conversations_task,
-            user_reports_task
+            user_reports_task,
+            return_exceptions=True
+
         )
-        conversations = convert_mongo(conversations_raw)
-        user_reports = convert_mongo(user_reports_raw)
-        
+
+        if isinstance(conversations_raw, Exception):
+            conversations = []
+        else:
+            conversations = convert_mongo(conversations_raw)
+
+        if isinstance(user_reports_raw, Exception):
+            user_reports = []
+        else:
+            user_reports = convert_mongo(user_reports_raw)
         return {
             "charts": astrology_data.get("horoscope_charts"),
             "conversations": conversations,
