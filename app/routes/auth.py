@@ -43,7 +43,6 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
             "long": user_doc_raw["long"], 
             "is_onboarded": True, 
             "created_at": datetime.utcnow(),     
-            "role": user_doc_raw["role"],        
         }
 
         res = await db.users.update_one(
@@ -75,7 +74,8 @@ async def request_otp(payload: OtpRequest):
                 "country_code": payload.country_code,
                 "created_at": datetime.utcnow(),
                 "is_onboarded": False,
-                "is_enabled": True
+                "is_enabled": True,
+                "role": payload.role
             })
             user_id = res.inserted_id
         else:

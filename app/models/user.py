@@ -6,7 +6,6 @@ from datetime import time, date
 class UserCreate(BaseModel):
     name: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     gender: Annotated[str, constr(strip_whitespace=True, min_length=1)]
-    role: Optional[str] = "user"
     date_of_birth: date
     time_of_birth: time
     lat: Annotated[str, constr(strip_whitespace=True, min_length=1)]
