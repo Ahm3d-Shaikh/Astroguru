@@ -100,6 +100,8 @@ async def add_user_report_to_db(id, user_id, profile_id):
             "user_id": ObjectId(user_id),
             "profile_id": ObjectId(profile_id),
             "report_id": ObjectId(id),
+            "file_url": None,
+            "report_text": None
         })
     except HTTPException as http_err:
         raise http_err
