@@ -137,16 +137,18 @@ async def fetch_user_compatibility_reports(user_id, is_comparison):
             detail=f"Error while fetching user compatibility reports from db: {str(e)}"
         ) 
 
-async def save_compatibility_user_report(user_id, compatibility_id, profile_id, is_comparison, file_url):
+async def save_compatibility_user_report(user_id, compatibility_id, profile_id, is_comparison, file_url, report_text):
     profile_ids = [ObjectId(pid) if isinstance(pid, str) else pid for pid in profile_id]
-    await db.user_compatibility_reports.insert_one({
+    saved_report = await db.user_compatibility_reports.insert_one({
         "user_id": ObjectId(user_id),
         "profile_id": profile_ids,
         "compatibility_id": ObjectId(compatibility_id),
         "is_comparison": is_comparison,
-        "pdf_report": file_url,  
+        "pdf_report": file_url,
+        "report_text": report_text,  
         "created_at": datetime.utcnow()
     })
+    return saved_report
 
 async def generate_compatibility_report(user_id, payload, pdf_report, report_type):
     try:
@@ -282,7 +284,17 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         )
 
         file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"
-        await save_compatibility_user_report(user_id, compatibility_doc["_id"], payload.profile_id, payload.is_comparison, file_url)
+        saved_report = await save_compatibility_user_report(user_id, compatibility_doc["_id"], payload.profile_id, payload.is_comparison, file_url, report_text)
+
+        chat_doc = {
+            "report_id": saved_report.inserted_id,
+            "user_id": ObjectId(user_id),
+            "messages": [],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await db.compatibility_report_chats.insert_one(chat_doc)
+
         return file_url
 
 
@@ -292,4 +304,151 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while generating compatibility report: {str(e)}"
+        )
+    
+
+
+async def fetch_question_about_report(user_id, report_id, profile_id, payload, compatibility_report):
+    try:
+        user_oid = ObjectId(user_id)
+        report_oid = ObjectId(report_id)
+        if not profile_id:
+            profile_id = user_id
+        if compatibility_report:
+            report_collection = db.user_compatibility_reports
+            chat_collection = db.compatibility_report_chats
+
+            report_filter = {
+                "_id": report_oid,
+                "user_id": user_oid
+            }
+
+            chat_filter = {
+                "report_id": report_oid,
+                "user_id": user_oid
+            }
+        else:
+            profile_oid = ObjectId(profile_id)
+            report_collection = db.user_reports
+            chat_collection = db.report_chats
+
+            report_filter = {
+                "report_id": report_oid,
+                "user_id": user_oid,
+                "profile_id": profile_oid
+            }
+
+            chat_filter = {
+                "report_id": report_oid,
+                "user_id": user_oid,
+                "profile_id": profile_oid
+            }
+        
+        report = await report_collection.find_one(report_filter)
+
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Report not found"
+            )
+
+        report_text = report["report_text"]
+
+        chat = await chat_collection.find_one(chat_filter)
+
+        if not chat:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat session not found"
+            )
+        
+        previous_messages = chat.get("messages", [])
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are an astrology assistant. "
+                    "Answer the user's questions using ONLY the following report:\n\n"
+                    f"{report_text}"
+                )
+            }
+        ]
+
+        MAX_HISTORY = 10
+        for msg in previous_messages[-MAX_HISTORY:]:
+            messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+
+        messages.append({
+            "role": "user",
+            "content": payload.user_question
+        })
+
+        # 4️⃣ Call Gemini
+        response = await client.aio.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[m["content"] for m in messages],
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+                max_output_tokens=1000
+            )
+        )
+
+        ai_reply = response.text
+
+        await chat_collection.update_one(
+            {"_id": chat["_id"]},
+            {
+                "$push": {
+                    "messages": {
+                        "$each": [
+                            {"role": "user", "content": payload.user_question},
+                            {"role": "assistant", "content": ai_reply}
+                        ]
+                    }
+                },
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
+        return ai_reply
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching query answer from AI: {str(e)}"
+        )
+    
+
+
+async def fetch_report_chat(user_id, report_id, profile_id, compatibility_report):
+    try:
+        query = {"report_id": ObjectId(report_id), "user_id": ObjectId(user_id)}
+        if not profile_id:
+            profile_id = user_id
+        if compatibility_report:
+            chat_collection = db.compatibility_report_chats
+        else:
+            chat_collection = db.report_chats
+            query["profile_id"] = ObjectId(profile_id)
+        report_chat = await chat_collection.find_one(query)
+        if not report_chat:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report Chat History Not Found")
+
+        report_chat["_id"] = str(report_chat["_id"])
+        report_chat["report_id"] = str(report_chat["report_id"])
+        report_chat["user_id"] = str(report_chat["user_id"])
+
+        if "profile_id" in report_chat:
+            report_chat["profile_id"] = str(report_chat["profile_id"])
+        return report_chat
+
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching chat history for report: {str(e)}"
         )

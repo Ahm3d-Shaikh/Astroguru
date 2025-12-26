@@ -3,8 +3,9 @@ from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
 import json
 from bson import json_util
-from app.services.compatibility_service import add_compatibility_prompt, fetch_compatibilities, delete_compatibility_from_db, update_compatibility_by_id, fetch_compatibility_by_id, generate_compatibility_report, fetch_user_compatibility_reports
+from app.services.compatibility_service import add_compatibility_prompt, fetch_compatibilities, delete_compatibility_from_db, update_compatibility_by_id, fetch_compatibility_by_id, generate_compatibility_report, fetch_user_compatibility_reports, fetch_question_about_report, fetch_report_chat
 from app.models.compatibility import CompatibilityCreate, CompatibilityUpdate, CompatibilityReportCreate
+from app.models.user_question import ChatQuestionPayload
 
 router = APIRouter()
 
@@ -40,7 +41,39 @@ async def get_compatibility_between_profiles(payload: CompatibilityReportCreate,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while generating compatibility report: {str(e)}"
         )
-    
+
+@router.post("/report/{report_id}/chat")
+async def ask_question_about_report(report_id: str, payload: ChatQuestionPayload, compatibility_report: str = Query(None),  profile_id: str = Query(None), current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        if not report_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
+        answer = await fetch_question_about_report(user_id, report_id, profile_id, payload, compatibility_report)
+        return {"message": "Query Answered Successfully", "result": answer}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while generating report query: {str(e)}"
+        )    
+
+@router.get("/report/{report_id}/chat")
+async def get_report_chat(report_id: str, compatibility_report: str = Query(None), profile_id: str = Query(None), current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        if not report_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
+        chat_history = await fetch_report_chat(user_id, report_id, profile_id, compatibility_report)
+        return {"message": "Query Answered Successfully", "result": chat_history}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while generating report query: {str(e)}"
+        )    
+
 
 @router.get("/report")
 async def get_user_compatibility_reports(is_comparison: bool = Query(False), current_user = Depends(get_current_user)):

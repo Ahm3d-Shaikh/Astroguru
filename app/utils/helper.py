@@ -412,7 +412,24 @@ def markdown_to_plain(text: str) -> str:
     return text.strip()
 
 
-async def generate_report_helper(user_details, astrology_data, user_report, pdf_report):
+
+async def save_user_report(user_id, profile_id, report_id, file_url, report_text):
+    result = await db.user_reports.update_one(
+        {   "user_id": ObjectId(user_id),
+            "profile_id": ObjectId(profile_id),
+            "report_id": ObjectId(report_id)
+        },
+        {
+            "$set": {
+                "file_url": file_url,
+                "report_text": report_text
+            }
+        }
+    )
+
+    return result
+
+async def generate_report_helper(user_details, astrology_data, user_report, pdf_report, user_id, profile_id):
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
     prompt = user_report.get("prompt", "You are an astrology report generator.")
     contents = [
@@ -512,6 +529,16 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
     )
 
     file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"
+    await save_user_report(user_id, profile_id, user_report["_id"], file_url, report_text)
+    chat_doc = {
+        "report_id": user_report["_id"],
+        "user_id": ObjectId(user_id),
+        "profile_id": ObjectId(profile_id),
+        "messages": [],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    await db.report_chats.insert_one(chat_doc)
     return file_url
 
 
