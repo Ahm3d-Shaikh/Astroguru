@@ -34,6 +34,8 @@ async def save_astrology_data(user_id: str, profile_id: str, astrology_data: dic
             "major_yogini_dasha_data": astrology_data.get("major_yogini_dasha",  {}),
             "current_yogini_dasha_data": astrology_data.get("current_yogini_dasha", {}),
             "horoscope_charts_data": astrology_data.get("horoscope_charts", {}),
+            "arudha_lagna": astrology_data.get("arudha_lagna", {}),
+            "indu_lagna": astrology_data.get("indu_lagna", {}),
             "updated_at": datetime.utcnow().isoformat()
         }
 
@@ -196,6 +198,9 @@ async def fetch_kundli(user_details: dict):
         "horoscope_charts": all_d_charts
     }
 
+    astrology_data["arudha_lagna"] = calculate_arudha_lagna(astrology_data)
+    astrology_data["indu_lagna"] = calculate_indu_lagna(astrology_data)
+
     return astrology_data
 
 
@@ -224,7 +229,9 @@ async def get_or_fetch_astrology_data(user_id: str, profile_id: str, profile_det
                 "current_vdasha_all": existing["current_vdasha_all_data"],
                 "current_yogini_dasha": existing["current_yogini_dasha_data"],
                 "major_yogini_dasha": existing["major_yogini_dasha_data"],
-                "horoscope_charts": existing["horoscope_charts_data"]
+                "horoscope_charts": existing["horoscope_charts_data"],
+                "arudha_lagna": existing["arudha_lagna"],
+                "indu_lagna": existing["indu_lagna"]
             }
 
         # 2️⃣ If not exists, call astrology API
@@ -686,3 +693,114 @@ def get_zodiac_sign(date_of_birth: str):
         return "Scorpio"
     else:
         return "Sagittarius"
+    
+
+
+ZODIAC_SIGNS = [
+    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+]
+
+SIGN_TO_INDEX = {sign: i for i, sign in enumerate(ZODIAC_SIGNS)}
+INDEX_TO_SIGN = {i: sign for i, sign in enumerate(ZODIAC_SIGNS)}
+
+PLANET_KALA = {
+    "Sun": 30,
+    "Moon": 16,
+    "Venus": 12,
+    "Jupiter": 10,
+    "Mercury": 8,
+    "Mars": 6,
+    "Saturn": 1,
+    "Rahu": 0,
+    "Ketu": 0
+}
+
+# Mapping of zodiac signs to their ruling planet (9th-lord calculation)
+SIGN_LORD = {
+    "Aries": "Mars",
+    "Taurus": "Venus",
+    "Gemini": "Mercury",
+    "Cancer": "Moon",
+    "Leo": "Sun",
+    "Virgo": "Mercury",
+    "Libra": "Venus",
+    "Scorpio": "Mars",
+    "Sagittarius": "Jupiter",
+    "Capricorn": "Saturn",
+    "Aquarius": "Saturn",
+    "Pisces": "Jupiter"
+}
+
+def normalize_sign_index(index: int) -> int:
+    """Ensure index stays within 0–11."""
+    return index % 12
+
+def count_sign_distance(from_sign: str, to_sign: str) -> int:
+    """
+    Count zodiac signs forward (inclusive) from from_sign to to_sign.
+    """
+    start = SIGN_TO_INDEX[from_sign]
+    end = SIGN_TO_INDEX[to_sign]
+    return (end - start) % 12 + 1
+
+def calculate_arudha_lagna(astrology_data: dict) -> str:
+    """
+    Calculate Arudha Lagna (AL) using the exact client rules.
+    """
+    ascendant = astrology_data["ascendant"]
+    lagna_index = SIGN_TO_INDEX[ascendant]
+
+    lagna_lord = astrology_data["planet_positions"]["Ascendant"]["signLord"]
+
+    lagna_lord_sign = astrology_data["planet_positions"][lagna_lord]["sign"]
+    lord_index = SIGN_TO_INDEX[lagna_lord_sign]
+
+    distance = count_sign_distance(ascendant, lagna_lord_sign)
+
+    preliminary_index = normalize_sign_index(lord_index + distance - 1)
+    preliminary_sign = INDEX_TO_SIGN[preliminary_index]
+
+    house_from_lagna = (preliminary_index - lagna_index) % 12 + 1
+
+    if house_from_lagna == 1:
+        final_index = normalize_sign_index(lagna_index + 9)
+        return INDEX_TO_SIGN[final_index]
+
+    # Exception B: 7th House
+    if house_from_lagna == 7:
+        final_index = normalize_sign_index(preliminary_index + 9)
+        return INDEX_TO_SIGN[final_index]
+
+    return preliminary_sign
+
+def calculate_indu_lagna(astrology_data: dict) -> str:
+    """
+    Calculate Indu Lagna (IL) using the corrected logic.
+    """
+    ascendant = astrology_data["ascendant"]
+    moon_sign = astrology_data["moon_sign"]
+
+    asc_index = SIGN_TO_INDEX[ascendant]
+    moon_index = SIGN_TO_INDEX[moon_sign]
+
+    ninth_from_asc_index = normalize_sign_index(asc_index + 8)
+    ninth_from_asc_sign = INDEX_TO_SIGN[ninth_from_asc_index]
+
+    ninth_from_moon_index = normalize_sign_index(moon_index + 8)
+    ninth_from_moon_sign = INDEX_TO_SIGN[ninth_from_moon_index]
+
+    lagna_9_lord = SIGN_LORD[ninth_from_asc_sign]
+    moon_9_lord = SIGN_LORD[ninth_from_moon_sign]
+
+    value_1 = PLANET_KALA.get(lagna_9_lord, 0)
+    value_2 = PLANET_KALA.get(moon_9_lord, 0)
+
+    total = value_1 + value_2
+
+    remainder = total % 12
+    remainder = 12 if remainder == 0 else remainder
+
+    indu_index = normalize_sign_index(moon_index + remainder - 1)
+
+    return INDEX_TO_SIGN[indu_index]
