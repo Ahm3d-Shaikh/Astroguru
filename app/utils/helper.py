@@ -451,6 +451,24 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
     )
     
     report_text = response.text
+
+    await save_user_report(
+        user_id,
+        profile_id,
+        user_report["_id"],
+        None,          # file_url (updated later if PDF exists)
+        report_text
+    )
+
+    chat_doc = {
+        "report_id": user_report["_id"],
+        "user_id": ObjectId(user_id),
+        "profile_id": ObjectId(profile_id),
+        "messages": [],
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    await db.report_chats.insert_one(chat_doc)
     if not pdf_report or pdf_report is False:
         return report_text
 
