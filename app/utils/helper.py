@@ -36,6 +36,7 @@ async def save_astrology_data(user_id: str, profile_id: str, astrology_data: dic
             "horoscope_charts_data": astrology_data.get("horoscope_charts", {}),
             "arudha_lagna": astrology_data.get("arudha_lagna", {}),
             "indu_lagna": astrology_data.get("indu_lagna", {}),
+            "karakamsha_lagna": astrology_data.get("karakamsha_lagna", {}),
             "updated_at": datetime.utcnow().isoformat()
         }
 
@@ -200,6 +201,7 @@ async def fetch_kundli(user_details: dict):
 
     astrology_data["arudha_lagna"] = calculate_arudha_lagna(astrology_data)
     astrology_data["indu_lagna"] = calculate_indu_lagna(astrology_data)
+    astrology_data["karakamsha_lagna"] = calculate_karakamsha_lagna(astrology_data)
 
     return astrology_data
 
@@ -231,7 +233,8 @@ async def get_or_fetch_astrology_data(user_id: str, profile_id: str, profile_det
                 "major_yogini_dasha": existing["major_yogini_dasha_data"],
                 "horoscope_charts": existing["horoscope_charts_data"],
                 "arudha_lagna": existing["arudha_lagna"],
-                "indu_lagna": existing["indu_lagna"]
+                "indu_lagna": existing["indu_lagna"],
+                "karakamsha_lagna": existing["karakamsha_lagna"]
             }
 
         # 2️⃣ If not exists, call astrology API
@@ -716,7 +719,6 @@ PLANET_KALA = {
     "Ketu": 0
 }
 
-# Mapping of zodiac signs to their ruling planet (9th-lord calculation)
 SIGN_LORD = {
     "Aries": "Mars",
     "Taurus": "Venus",
@@ -733,21 +735,14 @@ SIGN_LORD = {
 }
 
 def normalize_sign_index(index: int) -> int:
-    """Ensure index stays within 0–11."""
     return index % 12
 
 def count_sign_distance(from_sign: str, to_sign: str) -> int:
-    """
-    Count zodiac signs forward (inclusive) from from_sign to to_sign.
-    """
     start = SIGN_TO_INDEX[from_sign]
     end = SIGN_TO_INDEX[to_sign]
     return (end - start) % 12 + 1
 
 def calculate_arudha_lagna(astrology_data: dict) -> str:
-    """
-    Calculate Arudha Lagna (AL) using the exact client rules.
-    """
     ascendant = astrology_data["ascendant"]
     lagna_index = SIGN_TO_INDEX[ascendant]
 
@@ -767,7 +762,6 @@ def calculate_arudha_lagna(astrology_data: dict) -> str:
         final_index = normalize_sign_index(lagna_index + 9)
         return INDEX_TO_SIGN[final_index]
 
-    # Exception B: 7th House
     if house_from_lagna == 7:
         final_index = normalize_sign_index(preliminary_index + 9)
         return INDEX_TO_SIGN[final_index]
@@ -775,9 +769,6 @@ def calculate_arudha_lagna(astrology_data: dict) -> str:
     return preliminary_sign
 
 def calculate_indu_lagna(astrology_data: dict) -> str:
-    """
-    Calculate Indu Lagna (IL) using the corrected logic.
-    """
     ascendant = astrology_data["ascendant"]
     moon_sign = astrology_data["moon_sign"]
 
@@ -804,3 +795,52 @@ def calculate_indu_lagna(astrology_data: dict) -> str:
     indu_index = normalize_sign_index(moon_index + remainder - 1)
 
     return INDEX_TO_SIGN[indu_index]
+
+
+def calculate_atmakaraka(astrology_data: dict) -> str:
+    classical_planets = [
+        "Sun", "Moon", "Mars",
+        "Mercury", "Jupiter", "Venus", "Saturn"
+    ]
+
+    max_degree = -1
+    atmakaraka = None
+
+    for planet in classical_planets:
+        planet_data = astrology_data["planet_positions"].get(planet)
+        if not planet_data:
+            continue
+
+        degree = planet_data.get("normDegree", 0)
+
+        if degree > max_degree:
+            max_degree = degree
+            atmakaraka = planet
+
+    return atmakaraka
+
+
+def calculate_navamsa_sign(sign: str, degree: float) -> str:
+    sign_index = SIGN_TO_INDEX[sign]
+
+    navamsa_size = 30 / 9 
+    navamsa_number = int(degree // navamsa_size)
+
+    d9_index = normalize_sign_index(sign_index * 9 + navamsa_number)
+    return INDEX_TO_SIGN[d9_index]
+
+
+def calculate_karakamsha_lagna(astrology_data: dict) -> str:
+    ak = calculate_atmakaraka(astrology_data)
+
+    if not ak:
+        raise ValueError("Atmakaraka could not be determined")
+
+    ak_data = astrology_data["planet_positions"][ak]
+    ak_sign = ak_data["sign"]
+    ak_degree = ak_data["normDegree"]
+
+    karakamsha_lagna = calculate_navamsa_sign(ak_sign, ak_degree)
+
+    return karakamsha_lagna
+
