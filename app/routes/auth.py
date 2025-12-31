@@ -5,6 +5,7 @@ from app.deps.auth_deps import get_current_user
 from app.models.otp import OtpRequest
 from app.utils.twilio import send_otp_sms
 from app.services.auth_service import create_access_token, generate_otp, get_user_by_phone
+from app.utils.helper import get_zodiac_sign
 from datetime import datetime, timedelta
 from app.db.mongo import db
 from bson import ObjectId
@@ -125,6 +126,7 @@ async def login(payload: LoginRequest):
         token = create_access_token(subject=str(user["_id"]))
         user_dict = dict(user)
         user_dict["_id"] = str(user["_id"])
+        user_dict["zodiac_sign"] = get_zodiac_sign(user_dict.get("date_of_birth"))
         return {"message": "User Logged In Successfully", "token": token, "user": user_dict}
     
     except HTTPException as http_err:
