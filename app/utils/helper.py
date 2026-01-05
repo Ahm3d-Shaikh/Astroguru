@@ -602,10 +602,10 @@ async def fetch_user_report(id, user_id, profile_id):
 async def generate_predictions_for_homepage(user_details, astrology_data):
     try:
         astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
-        prediction_prompt_doc = await db.predictions.find_one({"name": "Dashboard Overview"})
+        prediction_prompt_doc = await db.predictions.find().sort("created_at", -1).to_list(1)
+        prediction_prompt_doc = prediction_prompt_doc[0] if prediction_prompt_doc else None
         prompt = prediction_prompt_doc["prompt"]
         
-
         contents = [
             f"Here is my astrological data:\n{astrology_summary}\n\n",
             f"Here's my personal data: {user_details}\n\n",
