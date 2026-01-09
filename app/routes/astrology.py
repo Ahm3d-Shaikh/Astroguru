@@ -76,4 +76,4 @@ async def get_dashboard_prediction(profile_id: str = Query(None), current_user =
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while getting dashboard prediction: {str(e)}"
-        )
+        )    

@@ -844,3 +844,46 @@ def calculate_karakamsha_lagna(astrology_data: dict) -> str:
 
     return karakamsha_lagna
 
+
+
+SIGN_ORDER = [
+    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+]
+
+SIGN_NAME_TO_NUM = {name: i + 1 for i, name in enumerate(SIGN_ORDER)}
+SIGN_NUM_TO_NAME = {i + 1: name for i, name in enumerate(SIGN_ORDER)}
+
+
+def build_indu_lagna_chart(indu_lagna, d1_chart):
+    if isinstance(indu_lagna, str):
+        indu_lagna_num = SIGN_NAME_TO_NUM[indu_lagna.capitalize()]
+    else:
+        indu_lagna_num = indu_lagna
+
+    indu_lagna_name = SIGN_NUM_TO_NAME[indu_lagna_num]
+
+    indu_chart = {
+        "indu_lagna": indu_lagna_name,
+        "houses": []
+    }
+
+    for house in d1_chart["houses"]:
+        sign_num = house["sign"]
+
+        house_number = ((sign_num - indu_lagna_num) % 12) + 1
+
+        indu_chart["houses"].append({
+            "house_number": house_number,
+            "sign": sign_num,
+            "sign_name": SIGN_NUM_TO_NAME[sign_num],
+            "planet": house["planet"],
+            "planet_small": house["planet_small"],
+            "planet_degree": house.get("planet_degree", [])
+        })
+
+    # Sort by Indu Lagna house order (1 → 12)
+    indu_chart["houses"].sort(key=lambda x: x["house_number"])
+
+    return indu_chart
+
