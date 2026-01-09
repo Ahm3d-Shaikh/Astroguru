@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 from datetime import datetime
-from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign
+from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart
 from app.services.conversation_service import fetch_conversations
 from app.services.report_service import fetch_user_reports
 from app.utils.mongo import convert_mongo
@@ -83,6 +83,9 @@ async def fetch_dashboard_details_for_user(id):
 
         )
 
+        indu_lagna = astrology_data.get("indu_lagna")
+        d1_chart = astrology_data.get("horoscope_charts").get("d1")
+        indu_lagna_chart = build_indu_lagna_chart(indu_lagna, d1_chart)
         if isinstance(conversations_raw, Exception):
             conversations = []
         else:
@@ -95,7 +98,8 @@ async def fetch_dashboard_details_for_user(id):
         return {
             "charts": astrology_data.get("horoscope_charts"),
             "conversations": conversations,
-            "reports": user_reports
+            "reports": user_reports,
+            "indu_lagna_chart": indu_lagna_chart
         }
     except HTTPException as http_err:
         raise http_err

@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from datetime import datetime
+from bson import ObjectId
 
 
 async def save_subscription(user_id, payload, apple_response):
@@ -51,3 +52,16 @@ async def save_subscription(user_id, payload, apple_response):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while saving subscription to db: {str(e)}"
         )
+    
+
+async def fetch_subscription(user_id):
+    try:
+        subscription = await db.user_subscriptions.find_one({"user_id": ObjectId(user_id)})
+        if not subscription:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subcription Not Found")
+        
+        return subscription
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise

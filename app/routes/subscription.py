@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from app.models.subscription import ReceiptRequest
 from app.deps.auth_deps import get_current_user
-from app.services.subscription_service import save_subscription
+from app.services.subscription_service import save_subscription, fetch_subscription
 import httpx
 import os
 
@@ -43,4 +43,19 @@ async def verify_receipt(payload: ReceiptRequest, current_user = Depends(get_cur
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while verifying receipt: {str(e)}"
+        )
+    
+
+@router.get("/")
+async def get_subscription_status(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        subscription = await fetch_subscription(user_id)
+        return {"message": "Subscription Fetched Successfully", "result": subscription}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching subscription status: {str(e)}"
         )
