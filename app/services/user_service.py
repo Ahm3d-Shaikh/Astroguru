@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 from datetime import datetime
-from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart
+from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart, build_karakamsha_chart, build_arudha_lagna_chart
 from app.services.conversation_service import fetch_conversations
 from app.services.report_service import fetch_user_reports
 from app.utils.mongo import convert_mongo
@@ -84,8 +84,14 @@ async def fetch_dashboard_details_for_user(id):
         )
 
         indu_lagna = astrology_data.get("indu_lagna")
+        karakamsha_lagna = astrology_data.get("karakamsha_lagna")
+        arudha_lagna = astrology_data.get("arudha_lagna")
         d1_chart = astrology_data.get("horoscope_charts").get("d1")
+        d9_chart = astrology_data.get("horoscope_charts").get("d9")
         indu_lagna_chart = build_indu_lagna_chart(indu_lagna, d1_chart)
+        karakamsha_lagna_chart = build_karakamsha_chart(karakamsha_lagna, d9_chart)
+        arudha_lagna_chart = build_arudha_lagna_chart(arudha_lagna, d1_chart)
+        planet_positions = astrology_data.get("planet_positions")
         if isinstance(conversations_raw, Exception):
             conversations = []
         else:
@@ -97,9 +103,12 @@ async def fetch_dashboard_details_for_user(id):
             user_reports = convert_mongo(user_reports_raw)
         return {
             "charts": astrology_data.get("horoscope_charts"),
+            "planet_positions": planet_positions,
             "conversations": conversations,
             "reports": user_reports,
-            "indu_lagna_chart": indu_lagna_chart
+            "indu_lagna_chart": indu_lagna_chart,
+            "karamsha_lagna_chart": karakamsha_lagna_chart,
+            "arudha_lagna_chart": arudha_lagna_chart
         }
     except HTTPException as http_err:
         raise http_err

@@ -890,6 +890,120 @@ def build_indu_lagna_chart(indu_lagna, d1_chart):
     return indu_chart
 
 
+def build_karakamsha_chart(karakamsha_lagna, d9_chart):
+    """
+    Build Karakamsha chart using D9 (Navamsa) positions.
+
+    Rules:
+    - Karakamsha Lagna is House 1
+    - Houses follow natural zodiac order
+    - Planets are placed based on their D9 sign only
+    """
+
+    # Normalize Karakamsha Lagna
+    if isinstance(karakamsha_lagna, str):
+        karakamsha_num = SIGN_NAME_TO_NUM[karakamsha_lagna.capitalize()]
+    else:
+        karakamsha_num = karakamsha_lagna
+
+    karakamsha_name = SIGN_NUM_TO_NAME[karakamsha_num]
+
+    karakamsha_chart = {
+        "karakamsha_lagna": karakamsha_name,
+        "houses": []
+    }
+
+    # Create empty 12-house structure
+    for i in range(12):
+        sign_num = ((karakamsha_num - 1 + i) % 12) + 1
+
+        karakamsha_chart["houses"].append({
+            "house_number": i + 1,
+            "sign": sign_num,
+            "sign_name": SIGN_NUM_TO_NAME[sign_num],
+            "planet": [],
+            "planet_small": [],
+            "planet_degree": []
+        })
+
+    # Index houses by sign for fast lookup
+    sign_to_house = {
+        house["sign"]: house for house in karakamsha_chart["houses"]
+    }
+
+    # Place planets using D9 positions
+    for house in d9_chart["houses"]:
+        sign_num = house["sign"]
+
+        target_house = sign_to_house.get(sign_num)
+        if not target_house:
+            continue
+
+        target_house["planet"].extend(house.get("planet", []))
+        target_house["planet_small"].extend(house.get("planet_small", []))
+        target_house["planet_degree"].extend(house.get("planet_degree", []))
+
+    return karakamsha_chart
+
+
+def build_arudha_lagna_chart(arudha_lagna, d1_chart):
+    """
+    Build Arudha Lagna chart using D1 positions.
+
+    Parameters:
+        arudha_lagna (str | int): Final Arudha Lagna sign
+        d1_chart (dict): D1 chart data
+
+    Returns:
+        dict: Arudha Lagna chart
+    """
+
+    # Normalize Arudha Lagna
+    if isinstance(arudha_lagna, str):
+        al_sign_num = SIGN_NAME_TO_NUM[arudha_lagna.capitalize()]
+    else:
+        al_sign_num = arudha_lagna
+
+    al_sign_name = SIGN_NUM_TO_NAME[al_sign_num]
+
+    arudha_chart = {
+        "arudha_lagna": al_sign_name,
+        "houses": []
+    }
+
+    # Build 12-house sign structure
+    for i in range(12):
+        sign_num = ((al_sign_num - 1 + i) % 12) + 1
+
+        arudha_chart["houses"].append({
+            "house_number": i + 1,
+            "sign": sign_num,
+            "sign_name": SIGN_NUM_TO_NAME[sign_num],
+            "planet": [],
+            "planet_small": [],
+            "planet_degree": []
+        })
+
+    # Index houses by sign
+    sign_to_house = {
+        house["sign"]: house for house in arudha_chart["houses"]
+    }
+
+    # Place planets using D1 sign positions
+    for house in d1_chart["houses"]:
+        sign_num = house["sign"]
+
+        target_house = sign_to_house.get(sign_num)
+        if not target_house:
+            continue
+
+        target_house["planet"].extend(house.get("planet", []))
+        target_house["planet_small"].extend(house.get("planet_small", []))
+        target_house["planet_degree"].extend(house.get("planet_degree", []))
+
+    return arudha_chart
+
+
 
 def calculate_d6_chart(astrology_data):
     """
