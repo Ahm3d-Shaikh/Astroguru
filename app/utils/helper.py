@@ -1004,59 +1004,70 @@ def build_arudha_lagna_chart(arudha_lagna, d1_chart):
     return arudha_chart
 
 
+def sign_to_house(sign_num, asc_sign_num):
+    house = (sign_num - asc_sign_num) % 12 + 1
+    return house
+
+
 
 def calculate_d6_chart(astrology_data):
-    """
-    Calculate the D6 (Shashtamsa) chart using the 6th-from-planet + 6-part division method.
-    """
-    signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
-             'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
-    
-    sign_to_num = {sign: i+1 for i, sign in enumerate(signs)}
-    num_to_sign = {i+1: sign for i, sign in enumerate(signs)}
-    
+    signs = [
+        'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+        'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+    ]
+
+    sign_to_num = {s: i + 1 for i, s in enumerate(signs)}
+    num_to_sign = {i + 1: s for i, s in enumerate(signs)}
+
     def planet_to_d6(planet):
         full_deg = planet['fullDegree']
         sign = planet['sign']
         sign_num = sign_to_num[sign]
-        
-        # Step 1: Determine part number (1-6)
+
+        # Degree within sign
         degree_in_sign = full_deg % 30
-        part_number = int(degree_in_sign // 5) + 1  # 5° per part
-        
-        # Step 2: Determine anchor (6th from planet)
-        anchor_num = (sign_num + 6 - 1) % 12
+
+        # 6 parts of 5° each
+        part_number = int(degree_in_sign // 5) + 1  # 1–6
+
+        # Anchor = 6th from planet sign
+        anchor_num = (sign_num + 5) % 12
         if anchor_num == 0:
             anchor_num = 12
-        
-        # Step 3: Count forward (part_number - 1) positions
-        d6_sign_num = (anchor_num + part_number - 1 - 1) % 12 + 1  # fixed off-by-one
-        
-        return num_to_sign[d6_sign_num]
-    
-    # Initialize empty D6 houses
+
+        # Count forward (part_number - 1)
+        d6_sign_num = (anchor_num + part_number - 2) % 12 + 1
+
+        return d6_sign_num
+
+    asc_sign = astrology_data['ascendant']
+    asc_sign_num = sign_to_num[asc_sign]
+
+    # Initialize houses
     d6_chart = {i: [] for i in range(1, 13)}
-    
-    # Place planets in D6
+
+    # Place planets
     for planet_name, planet_data in astrology_data['planet_positions'].items():
         if planet_name.upper() == 'ASCENDANT':
-            continue  # skip Ascendant
-        d6_sign = planet_to_d6(planet_data)
-        house_num = sign_to_num[d6_sign]
+            continue
+
+        d6_sign_num = planet_to_d6(planet_data)
+        house_num = sign_to_house(d6_sign_num, asc_sign_num)
         d6_chart[house_num].append(planet_name.upper())
-    
-    # Build structured chart
+
+    # Build final chart
     d6_houses = []
-    for i in range(1, 13):
+    for house_num in range(1, 13):
+        house_sign_num = (asc_sign_num + house_num - 2) % 12 + 1
         d6_houses.append({
-            'sign': i,
-            'sign_name': num_to_sign[i],
-            'planet': d6_chart[i],
-            'house_number': i
+            'house_number': house_num,
+            'sign': house_sign_num,
+            'sign_name': num_to_sign[house_sign_num],
+            'planet': d6_chart[house_num]
         })
-    
+
     return {
-        'ascendant': astrology_data['ascendant'],
+        'ascendant': asc_sign,
         'houses': d6_houses
     }
 
@@ -1080,49 +1091,47 @@ def calculate_d11_chart(astrology_data):
         # Step 1: Degree within sign
         degree_in_sign = full_deg % 30
 
-        # Step 2: Find part number (1–11)
+        # Step 2: Part number (1–11)
         part_number = int(degree_in_sign // PART_DEG) + 1
         if part_number > 11:
             part_number = 11
 
         # Step 3: Anchor = 11th from planet sign
-        # (Current sign + 10)
-        anchor_num = (sign_num + 10) % 12
-        if anchor_num == 0:
-            anchor_num = 12
+        anchor_num = ((sign_num + 10 - 1) % 12) + 1
 
-        # Step 4: Count forward (part_number - 1)
-        d11_sign_num = (anchor_num + part_number - 1) % 12
-        if d11_sign_num == 0:
-            d11_sign_num = 12
+        # Step 4: Count forward (inclusive)
+        d11_sign_num = ((anchor_num + part_number - 1 - 1) % 12) + 1
 
-        return num_to_sign[d11_sign_num]
+        return d11_sign_num
 
     # Initialize empty houses
     d11_chart = {i: [] for i in range(1, 13)}
 
+    asc_sign_num = sign_to_num[astrology_data['ascendant']]
+
     # Place planets
     for planet_name, planet_data in astrology_data['planet_positions'].items():
         if planet_name.upper() == 'ASCENDANT':
-            continue  # Ascendant not treated as a planet unless explicitly required
+            continue
 
-        d11_sign = planet_to_d11(planet_data)
-        house_num = sign_to_num[d11_sign]
+        d11_sign_num = planet_to_d11(planet_data)
+        house_num = sign_to_house(d11_sign_num, asc_sign_num)
         d11_chart[house_num].append(planet_name.upper())
 
     # Build final structure
     d11_houses = []
     for i in range(1, 13):
+        sign_num = ((asc_sign_num + i - 1 - 1) % 12) + 1
         d11_houses.append({
-            'sign': i,
-            'sign_name': num_to_sign[i],
-            'planet': d11_chart[i],
-            'house_number': i
+            "house_number": i,
+            "sign": sign_num,
+            "sign_name": num_to_sign[sign_num],
+            "planet": d11_chart[i]
         })
 
     return {
-        'ascendant': astrology_data['ascendant'],
-        'houses': d11_houses
+        "ascendant": astrology_data["ascendant"],
+        "houses": d11_houses
     }
 
 
