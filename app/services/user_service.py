@@ -107,7 +107,7 @@ async def fetch_dashboard_details_for_user(id):
             "conversations": conversations,
             "reports": user_reports,
             "indu_lagna_chart": indu_lagna_chart,
-            "karamsha_lagna_chart": karakamsha_lagna_chart,
+            "karakamsha_lagna_chart": karakamsha_lagna_chart,
             "arudha_lagna_chart": arudha_lagna_chart
         }
     except HTTPException as http_err:
