@@ -92,6 +92,12 @@ async def fetch_dashboard_details_for_user(id):
         karakamsha_lagna_chart = build_karakamsha_chart(karakamsha_lagna, d9_chart)
         arudha_lagna_chart = build_arudha_lagna_chart(arudha_lagna, d1_chart)
         planet_positions = astrology_data.get("planet_positions")
+        FIELDS_TO_ROUND = {"fullDegree", "normDegree", "speed"}
+
+        for planet, data in planet_positions.items():
+            for field in FIELDS_TO_ROUND:
+                if field in data and isinstance(data[field], (int, float)):
+                    data[field] = round(data[field], 2)
         if isinstance(conversations_raw, Exception):
             conversations = []
         else:
