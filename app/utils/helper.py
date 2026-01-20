@@ -890,14 +890,15 @@ def build_indu_lagna_chart(indu_lagna, d1_chart):
     return indu_chart
 
 
-def build_karakamsha_chart(karakamsha_lagna, d9_chart):
+def build_karakamsha_chart(karakamsha_lagna, d1_chart):
     """
-    Build Karakamsha chart using D9 (Navamsa) positions.
+    Build Karakamsha chart by rotating the D1 chart.
 
-    Rules:
-    - Karakamsha Lagna is House 1
-    - Houses follow natural zodiac order
-    - Planets are placed based on their D9 sign only
+    Rules (as per client):
+    - Karakamsha Lagna is derived from D9 (already computed)
+    - D9 is NOT used for planet placement
+    - Take D1 chart and remap house numbers
+    - Preserve all planetary signs and groupings
     """
 
     # Normalize Karakamsha Lagna
@@ -906,42 +907,28 @@ def build_karakamsha_chart(karakamsha_lagna, d9_chart):
     else:
         karakamsha_num = karakamsha_lagna
 
-    karakamsha_name = SIGN_NUM_TO_NAME[karakamsha_num]
-
     karakamsha_chart = {
-        "karakamsha_lagna": karakamsha_name,
+        "karakamsha_lagna": SIGN_NUM_TO_NAME[karakamsha_num],
         "houses": []
     }
 
-    # Create empty 12-house structure
-    for i in range(12):
-        sign_num = ((karakamsha_num - 1 + i) % 12) + 1
-
-        karakamsha_chart["houses"].append({
-            "house_number": i + 1,
-            "sign": sign_num,
-            "sign_name": SIGN_NUM_TO_NAME[sign_num],
-            "planet": [],
-            "planet_small": [],
-            "planet_degree": []
-        })
-
-    # Index houses by sign for fast lookup
-    sign_to_house = {
-        house["sign"]: house for house in karakamsha_chart["houses"]
-    }
-
-    # Place planets using D9 positions
-    for house in d9_chart["houses"]:
+    for house in d1_chart["houses"]:
         sign_num = house["sign"]
 
-        target_house = sign_to_house.get(sign_num)
-        if not target_house:
-            continue
+        # Rotate houses
+        house_number = ((sign_num - karakamsha_num) % 12) + 1
 
-        target_house["planet"].extend(house.get("planet", []))
-        target_house["planet_small"].extend(house.get("planet_small", []))
-        target_house["planet_degree"].extend(house.get("planet_degree", []))
+        karakamsha_chart["houses"].append({
+            "house_number": house_number,
+            "sign": sign_num,
+            "sign_name": SIGN_NUM_TO_NAME[sign_num],
+            "planet": house.get("planet", []),
+            "planet_small": house.get("planet_small", []),
+            "planet_degree": house.get("planet_degree", [])
+        })
+
+    # Sort houses from 1 → 12
+    karakamsha_chart["houses"].sort(key=lambda x: x["house_number"])
 
     return karakamsha_chart
 

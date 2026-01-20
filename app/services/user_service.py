@@ -87,9 +87,8 @@ async def fetch_dashboard_details_for_user(id):
         karakamsha_lagna = astrology_data.get("karakamsha_lagna")
         arudha_lagna = astrology_data.get("arudha_lagna")
         d1_chart = astrology_data.get("horoscope_charts").get("d1")
-        d9_chart = astrology_data.get("horoscope_charts").get("d9")
         indu_lagna_chart = build_indu_lagna_chart(indu_lagna, d1_chart)
-        karakamsha_lagna_chart = build_karakamsha_chart(karakamsha_lagna, d9_chart)
+        karakamsha_lagna_chart = build_karakamsha_chart(karakamsha_lagna, d1_chart)
         arudha_lagna_chart = build_arudha_lagna_chart(arudha_lagna, d1_chart)
         planet_positions = astrology_data.get("planet_positions")
         FIELDS_TO_ROUND = {"fullDegree", "normDegree", "speed"}
