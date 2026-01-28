@@ -15,6 +15,7 @@ import asyncio
 import io
 import re
 from app.clients.aws import s3_client, S3_BUCKET
+from app.services.subscription_service import deduct_user_credits
 
 ASTRO_API_USER_ID = os.getenv("ASTROLOGY_API_USER_ID")
 ASTRO_API_KEY = os.getenv("ASTROLOGY_API_KEY")
@@ -405,7 +406,8 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
 
     await asyncio.gather(
     save_chat_in_db(user_id, profile_id, "user", conversation_id, user_question, category),
-    save_chat_in_db(user_id, profile_id, "assistant", conversation_id, reply, category)    
+    save_chat_in_db(user_id, profile_id, "assistant", conversation_id, reply, category),
+    deduct_user_credits(user_id, 1, "1 Chat Consumed")  
     )
 
     return reply, category, conversation_id

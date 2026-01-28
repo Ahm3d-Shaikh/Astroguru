@@ -61,7 +61,7 @@ async def verify_storekit2_transaction(signed_transaction_info: str):
     }
 
 
-async def add_user_credits(user_id: str, credits: int):
+async def add_user_credits(user_id: str, credits: int, reason: str, purchase_value: Optional[str] = None):
     if credits <= 0:
         raise ValueError("Credits must be positive")
 
@@ -71,8 +71,15 @@ async def add_user_credits(user_id: str, credits: int):
         upsert=True
     )
 
+    await log_user_transaction(
+        user_id=user_id,
+        reason=reason,
+        credits_change=credits,
+        purchase_value=purchase_value
+    )
 
-async def deduct_user_credits(user_id: str, credits: int):
+
+async def deduct_user_credits(user_id: str, credits: int, reason: str, purchase_value: Optional[str] = None):
     if credits <= 0:
         raise ValueError("Credits to deduct must be positive")
 
@@ -92,6 +99,13 @@ async def deduct_user_credits(user_id: str, credits: int):
             status_code=400,
             detail="Insufficient credits"
         )
+    
+    await log_user_transaction(
+        user_id=user_id,
+        reason=reason,
+        credits_change=-credits,
+        purchase_value=purchase_value
+    )
 
     return result["credits_balance"]
 
@@ -126,19 +140,9 @@ async def save_subscription(user_id: str, data: dict):
             "environment": data.get("environment")
         })
 
-        await add_user_credits(user_id, plan["credits"])
-        await log_user_transaction(
-            user_id=user_id,
-            transaction_id=data.get("transactionId"),
-            product_id= data.get("productId"),
-            plan_id=plan["_id"],
-            credits_change=plan["credits"],
-            type_="purchase",
-            source=data.get("platform"),
-            status="active",
-            expires_at=data.get("expirationDateIOS")
-        )
-
+        reason = f"{plan['credits']} Coin Purchase"
+        purchase_value = f"{plan['price']} {plan['currency']}"
+        await add_user_credits(user_id, plan["credits"], reason, purchase_value)
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -244,26 +248,16 @@ async def get_user_id_from_tx(transaction_id):
 
 async def log_user_transaction(
     user_id: str,
-    transaction_id: str,
-    product_id: str,
-    plan_id: str,
+    reason: str,
     credits_change: int,
-    type_: str,
-    source: str,
-    status: str,
-    expires_at: Optional[datetime] = None
+    purchase_value: Optional[str] = None
 ):
     await db.user_transactions.insert_one({
         "user_id": ObjectId(user_id),
-        "transaction_id": transaction_id,
-        "product_id": product_id,
-        "plan_id": plan_id,
+        "reason": reason,
         "credits_change": credits_change,
-        "type": type_,
-        "source": source,
-        "status": status,
-        "created_at": datetime.utcnow(),
-        "expires_at": expires_at
+        "purchase": purchase_value,
+        "created_at": datetime.utcnow()
     })
 
 
@@ -324,7 +318,7 @@ async def handle_apple_event(event: dict):
 
 async def fetch_transaction_history(user_id):
     try:
-        cursor = db.user_transactions.find({"user_id": ObjectId(user_id)})
+        cursor = db.user_transactions.find({"user_id": ObjectId(user_id)}).sort("created_at", -1)
         history = await cursor.to_list(length=None)
 
         if not history:
@@ -336,4 +330,20 @@ async def fetch_transaction_history(user_id):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching transaction history: {str(e)}"
+        )
+    
+
+async def assign_coins_to_user(id, payload):
+    try:
+        await db.user_wallet.update_one(
+        {"user_id": ObjectId(id)},
+        {"$inc": {"credits_balance": payload.coins}},
+        upsert=True
+    )
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while assigning coins to user: {str(e)}"
         )
