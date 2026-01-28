@@ -289,6 +289,7 @@ async def fetch_profile_details(user_id, profile_id):
 
 async def get_category_from_question(question):
     category_list = await fetch_categories()
+    print("category list: ", category_list)
     system_prompt = f"""
     You are a strict classifier. Your job is to choose ONE category for the question.
 
@@ -347,6 +348,7 @@ async def create_conversation(user_id, profile_id, category, first_user_message)
 
 async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str, profile_id: str, conversation_id=None):
     category = await get_category_from_question(user_question)
+    print("category: ", category)
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
 
     if not conversation_id:
