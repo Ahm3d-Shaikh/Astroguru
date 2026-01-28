@@ -25,7 +25,7 @@ async def add_system_prompt_to_db(category, prompt):
         if category in categories:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Category Already Exists")
         await db.system_prompts.insert_one({
-            "category": category,
+            "category": category.strip().lower(),
             "prompt": prompt
         })
     except HTTPException as http_err:
@@ -40,6 +40,9 @@ async def add_system_prompt_to_db(category, prompt):
 async def edit_prompt_in_db(id, update_data):
     try:
         object_id = ObjectId(id)
+        # 🔒 normalize category if present
+        if "category" in update_data and isinstance(update_data["category"], str):
+            update_data["category"] = update_data["category"].strip().lower()
         result = await db.system_prompts.update_one({"_id": object_id}, {"$set": update_data})
         if result.matched_count == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prompt not found")
