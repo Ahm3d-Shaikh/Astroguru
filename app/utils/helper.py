@@ -299,7 +299,6 @@ async def get_category_from_question(question):
     - Reply with EXACTLY one word: the category name.
     - Do NOT explain.
     - Do NOT add punctuation or quotes.
-    - Keep the case the same as provided in the list above.
     - If the question fits multiple categories, choose the BEST one.
     Example:
     Q: "When would I become a millionaire?"
@@ -318,7 +317,7 @@ async def get_category_from_question(question):
         config=config,
     )
 
-    reply = response.text.strip().strip('"').strip("'")  # <-- normalize
+    reply = response.text.strip().strip('"').strip("'").lower()  # <-- normalize
     return reply
 
 

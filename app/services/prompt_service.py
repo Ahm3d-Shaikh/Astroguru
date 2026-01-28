@@ -59,7 +59,7 @@ async def edit_prompt_in_db(id, update_data):
 async def fetch_categories():
     try:
         categories = await db.system_prompts.distinct("category")
-        return categories
+        return sorted(set(c.lower().strip() for c in categories))
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
