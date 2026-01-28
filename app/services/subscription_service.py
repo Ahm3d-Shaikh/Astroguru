@@ -337,3 +337,19 @@ async def fetch_transaction_history(user_id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching transaction history: {str(e)}"
         )
+    
+
+async def assign_coins_to_user(id, payload):
+    try:
+        await db.user_wallet.update_one(
+        {"user_id": ObjectId(id)},
+        {"$inc": {"credits_balance": payload.coins}},
+        upsert=True
+    )
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while assigning coins to user: {str(e)}"
+        )

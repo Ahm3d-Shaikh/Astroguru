@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
-from app.models.subscription import SubscriptionRequest, PlanRequest, PlanUpdateRequest
+from app.models.subscription import SubscriptionRequest, PlanRequest, PlanUpdateRequest, CoinsRequest
 from app.deps.auth_deps import get_current_user
-from app.services.subscription_service import save_subscription, fetch_subscription, add_plan_to_db, fetch_plans, update_plan_by_id, verify_storekit2_transaction, verify_apple_notification, handle_apple_event, fetch_transaction_history
+from app.services.subscription_service import save_subscription, fetch_subscription, add_plan_to_db, fetch_plans, update_plan_by_id, verify_storekit2_transaction, verify_apple_notification, handle_apple_event, fetch_transaction_history, assign_coins_to_user
 from app.utils.admin import is_user_admin
 import httpx
 import os
@@ -125,4 +125,21 @@ async def get_transaction_history(current_user = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching transaction history: {str(e)}"
+        )
+    
+
+@router.post("/coins/{id}")
+async def add_coins(id: str, payload: CoinsRequest, current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        await assign_coins_to_user(id, payload)
+        return {"message": "Coins Assigned Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while assigning coins: {str(e)}"
         )

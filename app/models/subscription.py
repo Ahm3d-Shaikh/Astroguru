@@ -41,3 +41,7 @@ class UserTransaction(BaseModel):
     status: str  
     created_at: datetime = datetime.utcnow()
     expires_at: Optional[datetime] = None
+
+
+class CoinsRequest(BaseModel):
+    coins: int
