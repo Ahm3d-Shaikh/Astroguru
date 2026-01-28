@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
 from app.models.subscription import SubscriptionRequest, PlanRequest, PlanUpdateRequest
 from app.deps.auth_deps import get_current_user
-from app.services.subscription_service import save_subscription, fetch_subscription, add_plan_to_db, fetch_plans, update_plan_by_id, verify_storekit2_transaction, verify_apple_notification, handle_apple_event
+from app.services.subscription_service import save_subscription, fetch_subscription, add_plan_to_db, fetch_plans, update_plan_by_id, verify_storekit2_transaction, verify_apple_notification, handle_apple_event, fetch_transaction_history
 from app.utils.admin import is_user_admin
 import httpx
 import os
@@ -108,4 +108,21 @@ async def get_subscription_status(current_user = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching subscription status: {str(e)}"
+        )
+    
+
+
+@router.get("/transaction-history")
+async def get_transaction_history(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        transaction_history = await fetch_transaction_history(user_id)
+        result_json = json.loads(json_util.dumps(transaction_history))
+        return {"message": "Transaction Fetched Successfully", "result": result_json}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching transaction history: {str(e)}"
         )
