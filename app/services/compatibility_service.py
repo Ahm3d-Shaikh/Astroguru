@@ -3,6 +3,7 @@ from app.db.mongo import db
 from bson import ObjectId
 from datetime import datetime
 from app.utils.helper import fetch_profile_details, get_or_fetch_astrology_data, markdown_to_plain, get_zodiac_sign
+from app.services.subscription_service import deduct_user_credits
 from app.clients.gemini_client import client
 from app.utils.mongo import convert_mongo
 from google.genai import types
@@ -205,6 +206,7 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
             contents=contents,
             config=config,
         )
+        await deduct_user_credits(user_id, 10, "1 Report Consumed")
         report_text = response.text
         if not pdf_report or pdf_report is False:
             return report_text
@@ -397,7 +399,7 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
         )
 
         ai_reply = response.text
-
+        await deduct_user_credits(user_id, 1, "1 Chat Consumed")
         await chat_collection.update_one(
             {"_id": chat["_id"]},
             {

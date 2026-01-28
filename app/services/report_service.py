@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
+from app.services.subscription_service import deduct_user_credits
 
 
 
@@ -103,6 +104,7 @@ async def add_user_report_to_db(id, user_id, profile_id):
             "file_url": None,
             "report_text": None
         })
+        await deduct_user_credits(user_id, 10, "1 Report Consumed")
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
