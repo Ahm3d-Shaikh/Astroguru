@@ -319,3 +319,21 @@ async def handle_apple_event(event: dict):
             status="refunded"
         )
 
+
+
+
+async def fetch_transaction_history(user_id):
+    try:
+        cursor = db.user_transactions.find({"user_id": ObjectId(user_id)})
+        history = await cursor.to_list(length=None)
+
+        if not history:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Transaction History Found")
+        return history
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching transaction history: {str(e)}"
+        )
