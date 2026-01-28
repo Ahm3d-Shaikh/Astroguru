@@ -5,7 +5,7 @@ from typing import Optional
 from bson import ObjectId
 from jose import jwt
 import requests
-from datetime import datetime  
+from datetime import datetime, timezone
 import os 
 
 APPLE_KEYS_URL = "https://api.storekit.itunes.apple.com/in-app-purchase/publicKeys"
@@ -20,15 +20,11 @@ def get_apple_public_keys():
     return _cached_keys
 
 
-# temporarily patch verify_storekit2_transaction
-# async def verify_storekit2_transaction(signed_transaction_info: str):
-#     return {
-#         "transaction_id": "1000000012345678",
-#         "product_id": "monthly_50",
-#         "purchase_date": datetime.utcnow(),
-#         "expires_at": datetime.utcnow() + timedelta(days=30)
-#     }
 
+def ms_to_datetime(ms: int | None):
+    if not ms:
+        return None
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
 
 async def verify_storekit2_transaction(signed_transaction_info: str):
     keys = get_apple_public_keys()
@@ -99,42 +95,48 @@ async def deduct_user_credits(user_id: str, credits: int):
 
     return result["credits_balance"]
 
-async def save_subscription(user_id: str, apple_data: dict):
+async def save_subscription(user_id: str, data: dict):
     try:
         existing = await db.user_subscriptions.find_one({
-            "apple_transaction_id": apple_data["transaction_id"]
+            "apple_transaction_id": data["transactionId"]
         })
         if existing:
             return
 
         plan = await db.subscription_plans.find_one({
-            "apple_product_id": apple_data["product_id"]
+            "apple_product_id": data["productId"]
         })
         if not plan:
             raise HTTPException(400, "Invalid Apple product")
+        
+
+        purchase_date = ms_to_datetime(data.get("originalTransactionDateIOS"))
+        expires_at = ms_to_datetime(data.get("expirationDateIOS"))
 
         await db.user_subscriptions.insert_one({
             "user_id": ObjectId(user_id),
             "plan_id": plan["_id"],
             "apple_product_id": plan["apple_product_id"],
-            "apple_transaction_id": apple_data["transaction_id"],
+            "apple_transaction_id": data.get("transactionId"),
             "credits_granted": plan["credits"],
-            "purchase_date": apple_data["purchase_date"],
-            "expires_at": apple_data["expires_at"],
-            "status": "active"
+            "purchase_date": purchase_date,
+            "expires_at": expires_at,
+            "status": "active",
+            "platform": data.get("platform"),
+            "environment": data.get("environment")
         })
 
         await add_user_credits(user_id, plan["credits"])
         await log_user_transaction(
             user_id=user_id,
-            transaction_id=apple_data["transaction_id"],
-            product_id=plan["apple_product_id"],
+            transaction_id=data.get("transactionId"),
+            product_id= data.get("productId"),
             plan_id=plan["_id"],
             credits_change=plan["credits"],
             type_="purchase",
-            source="apple",
+            source=data.get("platform"),
             status="active",
-            expires_at=apple_data["expires_at"]
+            expires_at=data.get("expirationDateIOS")
         )
 
     except HTTPException as http_err:
