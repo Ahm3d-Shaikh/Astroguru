@@ -5,7 +5,7 @@ from datetime import datetime
 
 
 class SubscriptionRequest(BaseModel):
-    signed_transaction_info: str
+    data: str
 
 class PlanType(str, Enum):
     subscription = "subscription"

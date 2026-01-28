@@ -67,13 +67,13 @@ async def update_plan(id: str, plan_update: PlanUpdateRequest, current_user = De
 async def add_subscription(payload: SubscriptionRequest, current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        # 1. Verify Apple StoreKit 2 transaction
-        apple_data = await verify_storekit2_transaction(
-            payload.signed_transaction_info
-        )
+        try:
+            data = json.loads(payload.data)
+        except Exception:
+            raise HTTPException(400, "Invalid JSON payload")
 
         # 2. Persist subscription and grant credits
-        await save_subscription(user_id, apple_data)
+        await save_subscription(user_id, data)
         return {"message": "Subscription Added Successfully"}
     except HTTPException as http_err:
         raise http_err
