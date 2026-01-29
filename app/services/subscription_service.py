@@ -262,55 +262,79 @@ async def log_user_transaction(
 
 
 async def handle_apple_event(event: dict):
-    notification_type = event["notificationType"]
-    signed_tx = event["data"]["signedTransactionInfo"]
+    notification_type = event.get("notificationType")
+    data = event.get("data", {})
 
-    tx = await verify_storekit2_transaction(signed_tx)
+    tx = data.get("transaction", {})  
 
-    plan = await db.subscription_plans.find_one({"apple_product_id": tx["product_id"]})
-    if not plan:
+    transaction_id = tx.get("transactionId")
+    product_id = tx.get("productId")
+
+    if not transaction_id or not product_id:
         return  
 
-    user_id = await get_user_id_from_tx(tx["transaction_id"]) 
+    plan = await db.subscription_plans.find_one({
+        "apple_product_id": product_id
+    })
+    if not plan:
+        return
+
+    user_id = await get_user_id_from_tx(transaction_id)
+    if not user_id:
+        return
+
+    purchase_date = ms_to_datetime(tx.get("originalTransactionDateIOS"))
+    expires_at = ms_to_datetime(tx.get("expirationDateIOS"))
 
     if notification_type in ["SUBSCRIBED", "DID_RENEW"]:
-        # Grant credits (idempotent)
-        await save_subscription(user_id, tx)
-        await log_user_transaction(
-        user_id=user_id,
-        transaction_id=tx["transaction_id"],
-        product_id=tx["product_id"],
-        plan_id=plan["_id"],
-        credits_change=plan["credits"],
-        type_="renewal",
-        source="apple",
-        status="active",
-        expires_at=tx.get("expires_at")
-    )
+        existing = await db.user_subscriptions.find_one({
+            "apple_transaction_id": transaction_id
+        })
 
+        if not existing:
+            await db.user_subscriptions.insert_one({
+                "user_id": ObjectId(user_id),
+                "plan_id": plan["_id"],
+                "apple_product_id": product_id,
+                "apple_transaction_id": transaction_id,
+                "credits_granted": plan["credits"],
+                "purchase_date": purchase_date,
+                "expires_at": expires_at,
+                "status": "active",
+                "platform": "ios",
+                "environment": tx.get("environmentIOS")
+            })
+
+            reason = f"{plan['credits']} Coin Purchase"
+            purchase_value = f"{plan['price']} {plan['currency']}"
+
+            await add_user_credits(
+                user_id=user_id,
+                credits=plan["credits"],
+                reason=reason,
+                purchase_value=purchase_value
+            )
 
     elif notification_type in ["CANCEL", "EXPIRED"]:
-        # Mark subscription inactive
         await db.user_subscriptions.update_one(
-            {"apple_transaction_id": tx["transaction_id"]},
+            {"apple_transaction_id": transaction_id},
             {"$set": {"status": "inactive"}}
         )
 
     elif notification_type == "REFUND":
-        await deduct_user_credits(user_id, plan["credits"])
         await db.user_subscriptions.update_one(
-            {"apple_transaction_id": tx["transaction_id"]},
+            {"apple_transaction_id": transaction_id},
             {"$set": {"status": "refunded"}}
         )
-        await log_user_transaction(
+
+        reason = f"Refund – {plan['credits']} Coins"
+        purchase_value = f"{plan['price']} {plan['currency']}"
+
+        await deduct_user_credits(
             user_id=user_id,
-            transaction_id=tx["transaction_id"],
-            product_id=tx["product_id"],
-            plan_id=plan["_id"],
-            credits_change=-plan["credits"],
-            type_="refund",
-            source="apple",
-            status="refunded"
+            credits=plan["credits"],
+            reason=reason,
+            purchase_value=purchase_value
         )
 
 
