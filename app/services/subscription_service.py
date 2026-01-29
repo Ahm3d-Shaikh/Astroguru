@@ -384,7 +384,7 @@ async def fetch_user_coins(user_id):
     try:
         coins = await db.user_wallet.find_one({"user_id": ObjectId(user_id)})
         if not coins:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credits Not Found")
+            return 0
         
         coins["_id"] = str(coins["_id"])
         coins["user_id"] = str(coins["user_id"])
