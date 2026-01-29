@@ -378,3 +378,21 @@ async def assign_coins_to_user(id, payload):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while assigning coins to user: {str(e)}"
         )
+    
+
+async def fetch_user_coins(user_id):
+    try:
+        coins = await db.user_wallet.find_one({"user_id": ObjectId(user_id)})
+        if not coins:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credits Not Found")
+        
+        coins["_id"] = str(coins["_id"])
+        coins["user_id"] = str(coins["user_id"])
+        return coins
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching coins: {str(e)}"
+        )
