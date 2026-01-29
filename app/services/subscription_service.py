@@ -337,9 +337,16 @@ async def assign_coins_to_user(id, payload):
     try:
         await db.user_wallet.update_one(
         {"user_id": ObjectId(id)},
-        {"$inc": {"credits_balance": payload.coins}},
+        {
+            "$inc": {"credits_balance": payload.coins},
+            "$set": {
+                "reason": payload.reason,
+                "updated_at": datetime.utcnow()
+            }
+        },
         upsert=True
     )
+
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

@@ -45,3 +45,4 @@ class UserTransaction(BaseModel):
 
 class CoinsRequest(BaseModel):
     coins: int
+    reason: Optional[str] = None
