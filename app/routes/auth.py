@@ -129,7 +129,7 @@ async def login(payload: LoginRequest):
         user_dict = dict(user)
         user_dict["_id"] = str(user["_id"])
         user_dict["zodiac_sign"] = get_zodiac_sign(user_dict.get("date_of_birth"))
-        return {"message": "User Logged In Successfully", "token": token, "user": user_dict, "coins": coins["credits_balance"]}
+        return {"message": "User Logged In Successfully", "token": token, "user": user_dict, "coins": coins}
     
     except HTTPException as http_err:
         raise http_err
