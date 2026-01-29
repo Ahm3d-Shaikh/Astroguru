@@ -117,8 +117,9 @@ async def get_transaction_history(current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         transaction_history = await fetch_transaction_history(user_id)
+        user_coins = await fetch_user_coins(user_id)
         result_json = json.loads(json_util.dumps(transaction_history))
-        return {"message": "Transaction Fetched Successfully", "result": result_json}
+        return {"message": "Transaction Fetched Successfully", "result": result_json, "coins": user_coins["credits_balance"]}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
