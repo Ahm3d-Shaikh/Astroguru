@@ -388,7 +388,7 @@ async def fetch_user_coins(user_id):
         
         coins["_id"] = str(coins["_id"])
         coins["user_id"] = str(coins["user_id"])
-        return coins
+        return coins["credits_balance"]
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
