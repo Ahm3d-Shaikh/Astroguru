@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict
 from bson import ObjectId
 from jose import jwt
 import requests
@@ -61,19 +61,27 @@ async def verify_storekit2_transaction(signed_transaction_info: str):
     }
 
 
-async def add_user_credits(user_id: str, credits: int, reason: str, purchase_value: Optional[str] = None):
+async def add_user_credits(user_id: str, credits: int, reason: str, purchase_value: Optional[Dict[str, any]] = None):
     if credits <= 0:
         raise ValueError("Credits must be positive")
+    
+
+    update_ops = {
+        "$inc": {"credits_balance": credits},
+        "$set": {
+            "reason": reason,
+            "updated_at": datetime.utcnow()
+        }
+    }
+
+    purchase_str = None
+    if purchase_value:
+        update_ops["$inc"]["total_spent"] = purchase_value["amount"]
+        purchase_str = f"{purchase_value['amount']} {purchase_value['currency']}"
 
     await db.user_wallet.update_one(
         {"user_id": ObjectId(user_id)},
-        {
-            "$inc": {"credits_balance": credits},
-            "$set": {
-                "reason": reason,
-                "updated_at": datetime.utcnow()
-            }
-        },
+        update_ops,
         upsert=True
     )
 
@@ -81,7 +89,7 @@ async def add_user_credits(user_id: str, credits: int, reason: str, purchase_val
         user_id=user_id,
         reason=reason,
         credits_change=credits,
-        purchase_value=purchase_value
+        purchase_value=purchase_str
     )
 
 
@@ -147,7 +155,9 @@ async def save_subscription(user_id: str, data: dict):
         })
 
         reason = f"{plan['credits']} Coin Purchase"
-        purchase_value = f"{plan['price']} {plan['currency']}"
+        amount = plan["price"]          # e.g. 9.99
+        currency = plan["currency"]
+        purchase_value = {"amount": amount, "currency": currency}
         await add_user_credits(user_id, plan["credits"], reason, purchase_value)
     except HTTPException as http_err:
         raise http_err
