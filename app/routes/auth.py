@@ -6,7 +6,7 @@ from app.models.otp import OtpRequest
 from app.utils.twilio import send_otp_sms
 from app.services.auth_service import create_access_token, generate_otp, get_user_by_phone
 from app.utils.helper import get_zodiac_sign
-from app.services.subscription_service import fetch_user_coins
+from app.services.subscription_service import fetch_user_coins, add_user_credits
 from datetime import datetime, timedelta
 from app.db.mongo import db
 from bson import ObjectId
@@ -55,6 +55,8 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
         if res.modified_count == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
 
+        reason = "Onboarding Bonus"
+        await add_user_credits(user_id, 50, reason)
         return {"message": "User Onboarded Successfully"}
     
     except HTTPException as http_err:
