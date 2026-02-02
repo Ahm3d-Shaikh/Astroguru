@@ -66,8 +66,14 @@ async def add_user_credits(user_id: str, credits: int, reason: str, purchase_val
         raise ValueError("Credits must be positive")
 
     await db.user_wallet.update_one(
-        {"user_id": ObjectId(user_id)},
-        {"$inc": {"credits_balance": credits}},
+        {"user_id": ObjectId(id)},
+        {
+            "$inc": {"credits_balance": credits},
+            "$set": {
+                "reason": reason,
+                "updated_at": datetime.utcnow()
+            }
+        },
         upsert=True
     )
 

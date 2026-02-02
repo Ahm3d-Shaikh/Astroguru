@@ -55,7 +55,7 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
         if res.modified_count == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
 
-        reason = "Onboarding Bonus"
+        reason = "onboarding bonus"
         await add_user_credits(user_id, 50, reason)
         return {"message": "User Onboarded Successfully"}
     
