@@ -412,3 +412,18 @@ async def fetch_user_coins(user_id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching coins: {str(e)}"
         )
+    
+
+
+async def fetch_user_transactions():
+    try:
+        cursor = db.user_wallet.find()
+        transactions = await cursor.to_list(length=None)
+        return transactions
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user transactions: {str(e)}"
+        )
