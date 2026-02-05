@@ -77,9 +77,12 @@ def normalize_chart(chart_data: list):
     }
 
 
-async def fetch_chart_image(id, chart):
+async def fetch_chart_image(id, chart, profile_id: str | None = None):
     try:
-        user_details = await fetch_user_details(id)
+        if profile_id == id:
+            profile_details = await fetch_user_details(id)
+        else:
+            profile_details = await fetch_profile_details(id, profile_id)
         auth_header = b64encode(f"{ASTRO_API_USER_ID}:{ASTRO_API_KEY}".encode()).decode()
         headers = {
             "Authorization": f"Basic {auth_header}",
@@ -87,14 +90,14 @@ async def fetch_chart_image(id, chart):
         }
 
         payload = {
-            "day": int(user_details["date_of_birth"].split("-")[2]),
-            "month": int(user_details["date_of_birth"].split("-")[1]),
-            "year": int(user_details["date_of_birth"].split("-")[0]),
-            "hour": int(user_details["time_of_birth"].split(":")[0]),
-            "min": int(user_details["time_of_birth"].split(":")[1]),
-            "lat": user_details.get("lat"),  
-            "lon": user_details.get("long"), 
-            "tzone": user_details.get("tzone", 5.5),
+            "day": int(profile_details["date_of_birth"].split("-")[2]),
+            "month": int(profile_details["date_of_birth"].split("-")[1]),
+            "year": int(profile_details["date_of_birth"].split("-")[0]),
+            "hour": int(profile_details["time_of_birth"].split(":")[0]),
+            "min": int(profile_details["time_of_birth"].split(":")[1]),
+            "lat": profile_details.get("lat"),  
+            "lon": profile_details.get("long"), 
+            "tzone": profile_details.get("tzone", 5.5),
             "image_type": "png"
         }
 

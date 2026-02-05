@@ -44,12 +44,14 @@ async def get_user_details(current_user = Depends(get_current_user)):
         )
 
 @router.get("/user-details/{id}")
-async def get_dashboard_details_for_user(id: str, current_user = Depends(get_current_user)):
+async def get_dashboard_details_for_user(id: str, profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         
-        result = await fetch_dashboard_details_for_user(id)
+        if profile_id is None:
+            profile_id = id
+        result = await fetch_dashboard_details_for_user(id, profile_id)
         return {"message": "User Details Fetched Successfully", "result": result}
     except HTTPException as http_err:
         raise http_err
@@ -60,7 +62,7 @@ async def get_dashboard_details_for_user(id: str, current_user = Depends(get_cur
         )
     
 @router.post("/user-details/chart-image/{id}")
-async def get_chart_image(id: str, chart: str = Query(), current_user = Depends(get_current_user)):
+async def get_chart_image(id: str, chart: str = Query(), profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
@@ -68,7 +70,9 @@ async def get_chart_image(id: str, chart: str = Query(), current_user = Depends(
         if not chart:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Chart Is Required")
         
-        chart_image = await fetch_chart_image(id, chart)
+        if profile_id is None:
+            profile_id = id
+        chart_image = await fetch_chart_image(id, chart, profile_id)
         return {"message": "Chart Image Fetched Successfully", "result": chart_image}
     except HTTPException as http_err:
         raise http_err

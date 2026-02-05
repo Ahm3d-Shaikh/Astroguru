@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 from datetime import datetime
-from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart, build_karakamsha_chart, build_arudha_lagna_chart
+from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart, build_karakamsha_chart, build_arudha_lagna_chart, fetch_profile_details
 from app.services.conversation_service import fetch_conversations
 from app.services.report_service import fetch_user_reports
 from app.utils.mongo import convert_mongo
@@ -22,6 +22,13 @@ async def fetch_users(type_filter: str = None):
 
         if not users:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Users Found")
+        
+        for user in users:
+            sub_users = await db.user_profiles.find(
+                {"user_id": user["_id"]}
+            ).to_list(length=None)
+
+            user["sub_users"] = sub_users  
         
         return users
     except HTTPException as http_err:
@@ -68,12 +75,15 @@ async def fetch_logged_in_user_details(user_id):
         )
     
 
-async def fetch_dashboard_details_for_user(id):
+async def fetch_dashboard_details_for_user(id, profile_id: str | None = None):
     try:
-        user_details = await fetch_user_details(id)
-        astrology_data_task = get_or_fetch_astrology_data(id, id, user_details)
-        conversations_task = fetch_conversations(id, None)
-        user_reports_task = fetch_user_reports(id, None)
+        if profile_id == id:
+            profile_details = await fetch_user_details(id)
+        else:
+            profile_details = await fetch_profile_details(id, profile_id)
+        astrology_data_task = get_or_fetch_astrology_data(id, profile_id, profile_details)
+        conversations_task = fetch_conversations(id, profile_id)
+        user_reports_task = fetch_user_reports(id, profile_id)
 
         astrology_data, conversations_raw, user_reports_raw = await asyncio.gather(
             astrology_data_task,
