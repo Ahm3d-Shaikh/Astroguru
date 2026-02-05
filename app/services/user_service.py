@@ -14,31 +14,39 @@ import asyncio
 
 async def fetch_users(type_filter: str = None):
     try:
-        query = {}
+        pipeline = []
+
         if type_filter:
-            query["role"] = type_filter
-        cursor = db.users.find(query)
-        users = await cursor.to_list(length=None)
+            pipeline.append({
+                "$match": {"role": type_filter}
+            })
+
+        pipeline.append({
+            "$lookup": {
+                "from": "user_profiles",
+                "localField": "_id",
+                "foreignField": "user_id",
+                "as": "sub_users"
+            }
+        })
+
+        users = await db.users.aggregate(pipeline).to_list(length=None)
 
         if not users:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Users Found")
-        
-        for user in users:
-            sub_users = await db.user_profiles.find(
-                {"user_id": user["_id"]}
-            ).to_list(length=None)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Users Found"
+            )
 
-            user["sub_users"] = sub_users  
-        
         return users
-    except HTTPException as http_err:
-        raise http_err
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching users: {str(e)}"
-        )
-    
+        )    
 
 async def fetch_user_by_id(id):
     try:
