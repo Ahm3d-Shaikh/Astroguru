@@ -240,20 +240,47 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
 
         # Title
         pdf.set_font("NotoSans", "B", 16)
-        pdf.cell(0, 10, "Astrology Report", ln=True, align="C")
+        pdf.cell(0, 10, f"{report_type} Report", ln=True, align="C")
         pdf.ln(10)
 
         pdf.set_font("NotoSans", "", 12)
 
-        paragraphs = safe_text.split("\n")
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                pdf.ln(5)  
+        lines = report_text.split("\n")
+        for line in lines:
+            line = line.strip()
+
+            if not line:
+                pdf.ln(5)
                 continue
 
-            pdf.multi_cell(0, 8, para)
-            pdf.ln(2)
+            # H1 / H2 style (## Heading)
+            if line.startswith("## "):
+                pdf.set_font("NotoSans", "B", 15)
+                pdf.multi_cell(0, 10, line.replace("## ", ""))
+                pdf.ln(4)
+                pdf.set_font("NotoSans", "", 12)
+                continue
+
+            # H3 style (### Heading)
+            if line.startswith("### "):
+                pdf.set_font("NotoSans", "B", 13)
+                pdf.multi_cell(0, 8, line.replace("### ", ""))
+                pdf.ln(3)
+                pdf.set_font("NotoSans", "", 12)
+                continue
+
+            # Bold inline text (**text**)
+            bold_parts = re.split(r'(\*\*.*?\*\*)', line)
+
+            for part in bold_parts:
+                if part.startswith("**") and part.endswith("**"):
+                    pdf.set_font("NotoSans", "B", 12)
+                    pdf.write(8, part.replace("**", ""))
+                    pdf.set_font("NotoSans", "", 12)
+                else:
+                    pdf.write(8, part)
+
+            pdf.ln(8)
 
         pdf.ln(5)
 

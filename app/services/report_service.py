@@ -97,6 +97,15 @@ async def delete_report_from_db(id: str):
 
 async def add_user_report_to_db(id, user_id, profile_id):
     try:
+        existing_report = await db.user_reports.find_one({
+            "user_id": ObjectId(user_id),
+            "report_id": ObjectId(id),
+            "profile_id": ObjectId(profile_id)
+        })
+
+        if existing_report:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You have already purchased this report")
+        
         await db.user_reports.insert_one({
             "user_id": ObjectId(user_id),
             "profile_id": ObjectId(profile_id),
