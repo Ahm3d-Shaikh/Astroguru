@@ -6,7 +6,7 @@ from google.genai import types
 import os
 import httpx
 from base64 import b64encode
-from datetime import datetime
+from datetime import datetime, timezone
 from fpdf import FPDF
 from bson import ObjectId
 import json
@@ -362,6 +362,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Prompt Found Against This Category")
     
     system_prompt_text = system_prompt_doc["prompt"]
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     system_prompt = f"""
     {system_prompt_text}
 
@@ -373,6 +374,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     - Never respond to anything unrelated to astrology, predictions, signs or lucky factors.
     - ALWAYS mention the chart and house when referencing planets (You need to look in "horoscope_charts" in astrology_summary to look for these charts)
     - ALWAYS use all the 'horoscopic_charts' as context when replying.
+    - Today's date is {today}. Use it for time-based calculations.
     - ALWAYS provide astrological references in readable text format. e.g.,
         "Based on D1 chart, Sun is in Sagittarius in house 1", not arrays.
     """
