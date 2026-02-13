@@ -160,6 +160,7 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         if not compatibility_doc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{report_type} Not Found")
         prompt = compatibility_doc["prompt"]
+        type = compatibility_doc["type"]
 
         profile_ids = [ObjectId(pid) if isinstance(pid, str) else pid for pid in payload.profile_id]
         cursor = db.user_compatibility_reports.find({
@@ -240,7 +241,7 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
 
         # Title
         pdf.set_font("NotoSans", "B", 16)
-        pdf.cell(0, 10, f"{report_type} Report", ln=True, align="C")
+        pdf.cell(0, 10, f"{type} {report_type} Report", ln=True, align="C")
         pdf.ln(10)
 
         pdf.set_font("NotoSans", "", 12)
