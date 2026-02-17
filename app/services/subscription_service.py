@@ -386,7 +386,8 @@ async def assign_coins_to_user(id, payload):
         },
         upsert=True
     )
-
+        reason = "Admin-added Reward"
+        await log_user_transaction(id, reason, payload.coins)
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
