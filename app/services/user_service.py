@@ -83,14 +83,14 @@ async def fetch_logged_in_user_details(user_id):
         )
     
 
-async def fetch_dashboard_details_for_user(id, profile_id: str | None = None):
+async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, search_term: str | None = None):
     try:
         if profile_id == id:
             profile_details = await fetch_user_details(id)
         else:
             profile_details = await fetch_profile_details(id, profile_id)
         astrology_data_task = get_or_fetch_astrology_data(id, profile_id, profile_details)
-        conversations_task = fetch_conversations(id, profile_id)
+        conversations_task = fetch_conversations(id, profile_id, search_term)
         user_reports_task = fetch_user_reports(id, profile_id)
 
         astrology_data, conversations_raw, user_reports_raw = await asyncio.gather(

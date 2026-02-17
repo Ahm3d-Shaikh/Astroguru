@@ -44,14 +44,14 @@ async def get_user_details(current_user = Depends(get_current_user)):
         )
 
 @router.get("/user-details/{id}")
-async def get_dashboard_details_for_user(id: str, profile_id: str = Query(None), current_user = Depends(get_current_user)):
+async def get_dashboard_details_for_user(id: str, profile_id: str = Query(None), search_term: str = Query(None), current_user = Depends(get_current_user)):
     try:
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         
         if profile_id is None:
             profile_id = id
-        result = await fetch_dashboard_details_for_user(id, profile_id)
+        result = await fetch_dashboard_details_for_user(id, profile_id, search_term)
         return {"message": "User Details Fetched Successfully", "result": result}
     except HTTPException as http_err:
         raise http_err
