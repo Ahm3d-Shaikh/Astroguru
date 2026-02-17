@@ -9,10 +9,10 @@ router = APIRouter()
 
 
 @router.get("/")
-async def get_conversations(profile_id: str = Query(None), current_user = Depends(get_current_user)):
+async def get_conversations(profile_id: str = Query(None), search_term: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        conversations = await fetch_conversations(user_id, profile_id)
+        conversations = await fetch_conversations(user_id, profile_id, search_term)
         result_json = json.loads(json_util.dumps(conversations))
         return {"message": "Conversations Fetched Successfully", "result": result_json}
     except HTTPException as http_err:

@@ -6,6 +6,7 @@ from bson import ObjectId
 from jose import jwt
 import requests
 from datetime import datetime, timezone
+from app.utils.mongo import convert_mongo
 import os 
 
 APPLE_KEYS_URL = "https://api.storekit.itunes.apple.com/in-app-purchase/publicKeys"
@@ -159,6 +160,8 @@ async def save_subscription(user_id: str, data: dict):
         currency = plan["currency"]
         purchase_value = {"amount": amount, "currency": currency}
         await add_user_credits(user_id, plan["credits"], reason, purchase_value)
+        coins = await fetch_user_coins(user_id)
+        return coins
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -169,16 +172,47 @@ async def save_subscription(user_id: str, data: dict):
 
 async def fetch_subscription(user_id):
     try:
-        subscription = await db.user_subscriptions.find_one({"user_id": ObjectId(user_id)})
-        if not subscription:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subcription Not Found")
-        
-        return subscription
+        pipeline = [
+            {
+                "$match": {
+                    "user_id": ObjectId(user_id)
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "subscription_plans",
+                    "localField": "plan_id",
+                    "foreignField": "_id",
+                    "as": "plan_details"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$plan_details",
+                    "preserveNullAndEmptyArrays": True
+                }
+            }
+        ]
+
+        cursor = db.user_subscriptions.aggregate(pipeline)
+        result = await cursor.to_list(length=1)
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subscription Not Found"
+            )
+
+        doc = convert_mongo(result)
+        return doc[0]
+
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
-        raise
-
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching subscription: {str(e)}"
+        )
 
 async def add_plan_to_db(payload):
     try:    
@@ -386,7 +420,8 @@ async def assign_coins_to_user(id, payload):
         },
         upsert=True
     )
-
+        reason = "Admin-added Reward"
+        await log_user_transaction(id, reason, payload.coins)
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

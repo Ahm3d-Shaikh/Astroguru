@@ -73,8 +73,8 @@ async def add_subscription(payload: SubscriptionRequest, current_user = Depends(
             raise HTTPException(400, "Invalid JSON payload")
 
         # 2. Persist subscription and grant credits
-        await save_subscription(user_id, data)
-        return {"message": "Subscription Added Successfully"}
+        coins = await save_subscription(user_id, data)
+        return {"message": "Subscription Added Successfully", "coins": coins}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

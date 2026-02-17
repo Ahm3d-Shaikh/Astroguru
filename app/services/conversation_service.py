@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 
-async def fetch_conversations(user_id, profile_id=None):
+async def fetch_conversations(user_id, profile_id=None, search_term = None):
     try:
         query = {
             "user_id": ObjectId(user_id) 
@@ -11,6 +11,9 @@ async def fetch_conversations(user_id, profile_id=None):
         if profile_id:
             query["profile_id"] = ObjectId(profile_id)
         
+        if search_term:
+            query["title"] = {"$regex": search_term, "$options": "i"}
+            
         cursor = db.conversations.find(query)
         conversations = await cursor.to_list(length=None)
         if len(conversations) == 0:
