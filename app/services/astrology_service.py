@@ -1,6 +1,10 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
+from google.genai import types
+import json
+import re
+from app.clients.gemini_client import client
 from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details
 
 
@@ -72,3 +76,69 @@ async def fetch_dashboard_predictions(user_id, profile_id):
     astrology_data = await get_or_fetch_astrology_data(user_id, profile_id, profile_details)
     text_output, prediction_dict = await generate_predictions_for_homepage(profile_details, astrology_data)
     return text_output, prediction_dict
+
+
+async def fetch_dynamic_questions(user_id):
+    try:
+        last_conversation = await db.conversations.find_one({"user_id": ObjectId(user_id)}, sort=[("created_at", -1)])
+
+        if not last_conversation:
+            return []
+        
+        last_three_questions = await db.chat_history.find(
+            {
+                "conversation_id": last_conversation["_id"],
+                "role": "user"  
+            },
+            sort=[("created_at", -1)]
+        ).limit(3).to_list(length=3)
+
+        last_three_questions.reverse()
+        print("last three questions: ", last_three_questions)
+
+        questions_text = "\n".join(
+            [f"{i+1}. {q['message']}" for i, q in enumerate(last_three_questions)]
+        )
+        print("questions: ", questions_text)
+        dynamic_prompt = f"""
+            The user previously asked:
+
+            {questions_text}
+
+            Generate 3 new astrology follow-up questions.
+
+            Return response strictly in JSON format:
+
+            {{
+            "questions": [
+                "question 1",
+                "question 2",
+                "question 3"
+            ]
+            }}
+            """
+
+
+        config = types.GenerateContentConfig(
+        temperature=0.8, 
+        max_output_tokens=300
+        )
+
+        response = await client.aio.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=dynamic_prompt,
+            config=config,
+        )
+
+        raw_text = response.text.strip()
+        cleaned_text = re.sub(r"```json|```", "", raw_text).strip()
+        parsed = json.loads(cleaned_text)
+        suggested_questions = parsed["questions"]
+        return suggested_questions
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching questions: {str(e)}"
+        )

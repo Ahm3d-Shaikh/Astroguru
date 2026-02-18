@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Body, Query
-from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions
+from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions
 from app.models.user_question import UserQuestionObj
 from app.deps.auth_deps import get_current_user
 from app.utils.enums.category import Category
@@ -77,3 +77,18 @@ async def get_dashboard_prediction(profile_id: str = Query(None), current_user =
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while getting dashboard prediction: {str(e)}"
         )    
+    
+
+@router.post("/questions")
+async def get_dynamic_questions(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        questions = await fetch_dynamic_questions(user_id)
+        return {"message": "Questions Fetched Successfully", "result": questions}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching dynamic questions:"
+        )
