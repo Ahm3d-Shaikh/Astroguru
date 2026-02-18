@@ -6,7 +6,7 @@ from google.genai import types
 import os
 import httpx
 from base64 import b64encode
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fpdf import FPDF
 from bson import ObjectId
 import json
@@ -325,7 +325,7 @@ async def get_category_from_question(question):
     return reply
 
 
-async def save_chat_in_db(user_id, profile_id, role, conversation_id,  message, category):
+async def save_chat_in_db(user_id, profile_id, role, conversation_id,  message, category, created_at=None):
     await db.chat_history.insert_one({
         "user_id": ObjectId(user_id),
         "profile_id": ObjectId(profile_id),
@@ -333,7 +333,7 @@ async def save_chat_in_db(user_id, profile_id, role, conversation_id,  message, 
         "conversation_id": ObjectId(conversation_id),
         "message": message,
         "category": category,
-        "created_at": datetime.utcnow()
+        "created_at": created_at or datetime.utcnow()
     })
 
 
@@ -409,9 +409,13 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
 
     reply = response.text
 
+    now = datetime.utcnow()
+    user_created_at = now
+    assistant_created_at = now + timedelta(seconds=1)
+
     await asyncio.gather(
-    save_chat_in_db(user_id, profile_id, "user", conversation_id, user_question, category),
-    save_chat_in_db(user_id, profile_id, "assistant", conversation_id, reply, category),
+    save_chat_in_db(user_id, profile_id, "user", conversation_id, user_question, category, user_created_at),
+    save_chat_in_db(user_id, profile_id, "assistant", conversation_id, reply, category, assistant_created_at),
     deduct_user_credits(user_id, 1, "1 Chat Consumed")  
     )
 
