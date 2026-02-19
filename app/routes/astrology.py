@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Body, Query
 from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions
 from app.models.user_question import UserQuestionObj
 from app.deps.auth_deps import get_current_user
+from app.utils.admin import is_user_admin
 from app.utils.enums.category import Category
 import json
 from bson import json_util
@@ -41,7 +42,41 @@ async def get_chat_history(id: str, category: str = Query(None), current_user = 
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching chat history: {str(e)}"
         )
-    
+
+
+@router.get("/chat-history/{id}")
+async def get_chat_history(id: str, category: str = Query(None), current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        chat_history = await fetch_chat_history_for_user(category, id, user_id)
+        result_json = json.loads(json_util.dumps(chat_history))
+        return {"message": "Chat History Fetched Successfully", "result": result_json}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching chat history: {str(e)}"
+        )
+
+
+@router.get("/admin/chat-history/{id}/{user_id}")
+async def get_chat_history(id: str, user_id: str,  category: str = Query(None), current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        chat_history = await fetch_chat_history_for_user(category, id, user_id)
+        result_json = json.loads(json_util.dumps(chat_history))
+        return {"message": "Chat History Fetched Successfully", "result": result_json}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching chat history: {str(e)}"
+        )
+
 
 @router.post("/report/{id}")
 async def generate_report(id: str, profile_id: str = Query(None), pdf_report: bool = Query(None), current_user = Depends(get_current_user)):
@@ -91,4 +126,18 @@ async def get_dynamic_questions(current_user = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching dynamic questions:"
+        )
+
+
+
+@router.post("/chat/like")
+async def add_chat_like(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while adding chat like: {str(e)}"
         )
