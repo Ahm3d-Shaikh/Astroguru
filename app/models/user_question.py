@@ -9,3 +9,8 @@ class UserQuestionObj(BaseModel):
 
 class ChatQuestionPayload(BaseModel):
     user_question: str
+
+
+class ChatLikePayload(BaseModel):
+    conversation_id: str
+    chat: str
