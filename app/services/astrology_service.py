@@ -106,8 +106,13 @@ async def fetch_dynamic_questions(user_id):
             {questions_text}
 
             Generate 3 new astrology follow-up questions.
-            Keep the questions statements short and precise (15 to 20 words max).
-            Return response strictly in JSON format:
+
+            The questions must sound like the user is asking the AI about their own life.
+            Do NOT frame the questions as if AI is asking the user (avoid "Do you", "Are you", "Have you").
+
+            Keep each question short and precise (15 to 20 words max).
+
+            Return response strictly in JSON format.
 
             {{
             "questions": [
