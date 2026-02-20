@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Body, Query
-from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions
-from app.models.user_question import UserQuestionObj
+from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions, add_chat_like_in_db, add_chat_dislike_in_db, fetch_user_likes, fetch_user_dislikes
+from app.models.user_question import UserQuestionObj, ChatLikePayload
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
 from app.utils.enums.category import Category
@@ -131,13 +131,66 @@ async def get_dynamic_questions(current_user = Depends(get_current_user)):
 
 
 @router.post("/chat/like")
-async def add_chat_like(current_user = Depends(get_current_user)):
+async def add_chat_like(payload: ChatLikePayload, current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
+        await add_chat_like_in_db(user_id, payload)
+        return {"message": "Chat Like Added Successfully"}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while adding chat like: {str(e)}"
+        )
+    
+
+
+@router.post("/chat/dislike")
+async def add_chat_dislike(payload: ChatLikePayload, current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await add_chat_dislike_in_db(user_id, payload)
+        return {"message": "Chat Dislike Added Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while adding chat dislike: {str(e)}"
+        )
+    
+
+@router.get("/chat/like/{id}")
+async def get_user_likes(id: str, current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        likes = await fetch_user_likes(id)
+        return {"message": "User Likes Fetched Successfully", "result": likes}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user likes: {str(e)}"
+        )
+    
+
+
+@router.get("/chat/dislike/{id}")
+async def get_user_dislikes(id: str, current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        likes = await fetch_user_dislikes(id)
+        return {"message": "User Likes Fetched Successfully", "result": likes}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user dislikes: {str(e)}"
         )

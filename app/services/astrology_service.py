@@ -2,9 +2,11 @@ from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
 from google.genai import types
+from datetime import datetime
 import json
 import re
 from app.clients.gemini_client import client
+from app.utils.mongo import convert_mongo
 from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details
 
 
@@ -94,19 +96,17 @@ async def fetch_dynamic_questions(user_id):
         ).limit(3).to_list(length=3)
 
         last_three_questions.reverse()
-        print("last three questions: ", last_three_questions)
 
         questions_text = "\n".join(
             [f"{i+1}. {q['message']}" for i, q in enumerate(last_three_questions)]
         )
-        print("questions: ", questions_text)
         dynamic_prompt = f"""
             The user previously asked:
 
             {questions_text}
 
             Generate 3 new astrology follow-up questions.
-
+            Keep the questions statements short and precise (15 to 20 words max).
             Return response strictly in JSON format:
 
             {{
@@ -141,4 +141,73 @@ async def fetch_dynamic_questions(user_id):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching questions: {str(e)}"
+        )
+
+
+
+async def add_chat_like_in_db(user_id, payload):
+    try:
+        await db.user_liked_chats.insert_one({
+            "user_id": ObjectId(user_id),
+            "chat": payload.chat,
+            "conversation_id": ObjectId(payload.conversation_id),
+            "created_at": datetime.utcnow()
+        })
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while adding chat like in db: {str(e)}"
+        )
+    
+
+async def add_chat_dislike_in_db(user_id, payload):
+    try:
+        await db.user_disliked_chats.insert_one({
+            "user_id": ObjectId(user_id),
+            "chat": payload.chat,
+            "conversation_id": ObjectId(payload.conversation_id),
+            "created_at": datetime.utcnow()
+        })
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while adding chat dislike in db: {str(e)}"
+        )
+    
+
+async def fetch_user_likes(id):
+    try:
+        cursor = db.user_liked_chats.find({"user_id": ObjectId(id)})
+        likes = await cursor.to_list(length=None)
+        if not likes:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Likes Not Found")
+        
+        return convert_mongo(likes)
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user likes: {str(e)}"
+        )
+    
+
+async def fetch_user_dislikes(id):
+    try:
+        cursor = db.user_disliked_chats.find({"user_id": ObjectId(id)})
+        dislikes = await cursor.to_list(length=None)
+        if not dislikes:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dislikes Not Found")
+        
+        return convert_mongo(dislikes)
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user likes: {str(e)}"
         )
