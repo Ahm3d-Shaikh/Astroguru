@@ -13,4 +13,4 @@ class ChatQuestionPayload(BaseModel):
 
 class ChatLikePayload(BaseModel):
     conversation_id: str
-    chat: str
+    chat_id: str

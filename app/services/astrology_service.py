@@ -150,31 +150,67 @@ async def fetch_dynamic_questions(user_id):
 
 
 
-async def add_chat_like_in_db(user_id, payload):
+async def add_chat_like_in_db(user_id, payload, profile_id=None):
     try:
-        await db.user_liked_chats.insert_one({
+        filter_query = {
+            "_id": ObjectId(payload.chat_id),
             "user_id": ObjectId(user_id),
-            "chat": payload.chat,
-            "conversation_id": ObjectId(payload.conversation_id),
-            "created_at": datetime.utcnow()
-        })
+            "conversation_id": ObjectId(payload.conversation_id)
+        }
+
+        if profile_id:
+            filter_query["profile_id"] = ObjectId(profile_id)
+
+        result = await db.chat_history.update_one(
+            filter_query,
+            {
+                "$set": {
+                    "is_liked": True,
+                    "is_disliked": False
+                }
+            }
+        )
+
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat Not Found Or Already Updated"
+            )
+
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while adding chat like in db: {str(e)}"
-        )
-    
+        )    
 
-async def add_chat_dislike_in_db(user_id, payload):
+async def add_chat_dislike_in_db(user_id, payload, profile_id=None):
     try:
-        await db.user_disliked_chats.insert_one({
+        filter_query = {
+            "_id": ObjectId(payload.chat_id),
             "user_id": ObjectId(user_id),
-            "chat": payload.chat,
-            "conversation_id": ObjectId(payload.conversation_id),
-            "created_at": datetime.utcnow()
-        })
+            "conversation_id": ObjectId(payload.conversation_id)
+        }
+
+        if profile_id:
+            filter_query["profile_id"] = ObjectId(profile_id)
+
+        result = await db.chat_history.update_one(
+            filter_query,
+            {
+                "$set": {
+                    "is_disliked": True,
+                    "is_liked": False
+                }
+            }
+        )
+
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat Not Found Or Already Updated"
+            )
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -184,9 +220,9 @@ async def add_chat_dislike_in_db(user_id, payload):
         )
     
 
-async def fetch_user_likes(id):
+async def fetch_user_likes(id, profile_id):
     try:
-        cursor = db.user_liked_chats.find({"user_id": ObjectId(id)})
+        cursor = db.chat_history.find({"user_id": ObjectId(id), "profile_id": ObjectId(profile_id)})
         likes = await cursor.to_list(length=None)
         if not likes:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Likes Not Found")
@@ -201,9 +237,9 @@ async def fetch_user_likes(id):
         )
     
 
-async def fetch_user_dislikes(id):
+async def fetch_user_dislikes(id, profile_id):
     try:
-        cursor = db.user_disliked_chats.find({"user_id": ObjectId(id)})
+        cursor = db.chat_history.find({"user_id": ObjectId(id), "profile_id": ObjectId(profile_id)})
         dislikes = await cursor.to_list(length=None)
         if not dislikes:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dislikes Not Found")

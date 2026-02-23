@@ -130,11 +130,11 @@ async def get_dynamic_questions(current_user = Depends(get_current_user)):
 
 
 
-@router.post("/chat/like")
-async def add_chat_like(payload: ChatLikePayload, current_user = Depends(get_current_user)):
+@router.patch("/chat/like")
+async def add_chat_like(payload: ChatLikePayload, profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        await add_chat_like_in_db(user_id, payload)
+        await add_chat_like_in_db(user_id, payload, profile_id)
         return {"message": "Chat Like Added Successfully"}
     except HTTPException as http_err:
         raise http_err
@@ -146,7 +146,7 @@ async def add_chat_like(payload: ChatLikePayload, current_user = Depends(get_cur
     
 
 
-@router.post("/chat/dislike")
+@router.patch("/chat/dislike")
 async def add_chat_dislike(payload: ChatLikePayload, current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
@@ -162,12 +162,15 @@ async def add_chat_dislike(payload: ChatLikePayload, current_user = Depends(get_
     
 
 @router.get("/chat/like/{id}")
-async def get_user_likes(id: str, current_user = Depends(get_current_user)):
+async def get_user_likes(id: str, profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         
-        likes = await fetch_user_likes(id)
+        if profile_id is None:
+            profile_id = id
+        
+        likes = await fetch_user_likes(id, profile_id)
         return {"message": "User Likes Fetched Successfully", "result": likes}
     except HTTPException as http_err:
         raise http_err
@@ -180,12 +183,14 @@ async def get_user_likes(id: str, current_user = Depends(get_current_user)):
 
 
 @router.get("/chat/dislike/{id}")
-async def get_user_dislikes(id: str, current_user = Depends(get_current_user)):
+async def get_user_dislikes(id: str, profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         if not is_user_admin(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         
-        likes = await fetch_user_dislikes(id)
+        if profile_id is None:
+            profile_id = id
+        likes = await fetch_user_dislikes(id, profile_id)
         return {"message": "User Likes Fetched Successfully", "result": likes}
     except HTTPException as http_err:
         raise http_err
