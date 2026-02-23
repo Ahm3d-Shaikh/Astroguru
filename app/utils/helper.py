@@ -333,6 +333,8 @@ async def save_chat_in_db(user_id, profile_id, role, conversation_id,  message, 
         "conversation_id": ObjectId(conversation_id),
         "message": message,
         "category": category,
+        "is_liked": False,
+        "is_disliked": False,
         "created_at": created_at or datetime.utcnow()
     })
 
