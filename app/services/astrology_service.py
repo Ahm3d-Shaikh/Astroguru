@@ -222,7 +222,7 @@ async def add_chat_dislike_in_db(user_id, payload, profile_id=None):
 
 async def fetch_user_likes(id, profile_id):
     try:
-        cursor = db.chat_history.find({"user_id": ObjectId(id), "profile_id": ObjectId(profile_id)})
+        cursor = db.chat_history.find({"user_id": ObjectId(id), "profile_id": ObjectId(profile_id), "is_liked": True})
         likes = await cursor.to_list(length=None)
         if not likes:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Likes Not Found")
@@ -239,7 +239,7 @@ async def fetch_user_likes(id, profile_id):
 
 async def fetch_user_dislikes(id, profile_id):
     try:
-        cursor = db.chat_history.find({"user_id": ObjectId(id), "profile_id": ObjectId(profile_id)})
+        cursor = db.chat_history.find({"user_id": ObjectId(id), "profile_id": ObjectId(profile_id), "is_disliked": True})
         dislikes = await cursor.to_list(length=None)
         if not dislikes:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dislikes Not Found")
