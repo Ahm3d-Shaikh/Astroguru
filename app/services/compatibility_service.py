@@ -151,7 +151,7 @@ async def save_compatibility_user_report(user_id, compatibility_id, profile_id, 
     })
     return saved_report
 
-async def generate_compatibility_report(user_id, payload, pdf_report, report_type):
+async def generate_compatibility_report(user_id, payload, pdf_report, report_type, language):
     try:
         profiles = dict()
         type = payload.type
@@ -193,7 +193,8 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         contents = [
             f"Profiles:\n\n {profiles_str}",
             f"Number Of Profiles: {len(profiles.keys())}",
-            f"Use all the profile details and astrological details to generate a detailed, warm, human-sounding {report_type} report."
+            f"Use all the profile details and astrological details to generate a detailed, warm, human-sounding {report_type} report.",
+            f"Respond in {language} language."
         ]
 
         config = types.GenerateContentConfig(
@@ -338,7 +339,7 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
     
 
 
-async def fetch_question_about_report(user_id, report_id, profile_id, payload, compatibility_report):
+async def fetch_question_about_report(user_id, report_id, profile_id, payload, compatibility_report, language):
     try:
         user_oid = ObjectId(user_id)
         report_oid = ObjectId(report_id)
@@ -399,7 +400,8 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
                 "content": (
                     "You are an astrology assistant. "
                     "Answer the user's questions using ONLY the following report:\n\n"
-                    f"{report_text}"
+                    f"{report_text}",
+                    f"Respond in {language} language"
                 )
             }
         ]

@@ -11,13 +11,13 @@ from fastapi.responses import FileResponse
 router = APIRouter()
 
 @router.post("/future_prediction")
-async def fetch_astrology_details(user_question_object: UserQuestionObj, profile_id: str = Query(None), user = Depends(get_current_user)):
+async def fetch_astrology_details(user_question_object: UserQuestionObj, profile_id: str = Query(None), language: str = Query("English"), user = Depends(get_current_user)):
     try:
         user_id = user["_id"]
         if profile_id is None:
             profile_id = user_id
         conversation_id = user_question_object.conversation_id
-        result, category, new_conversation_id = await fetch_predictions_for_user(user_id, profile_id, user_question_object.user_question, conversation_id)
+        result, category, new_conversation_id = await fetch_predictions_for_user(user_id, profile_id, user_question_object.user_question, conversation_id, language)
         return {"message": "Prediction Fetched Successfully", "result": result, "category": category, "conversation_id": new_conversation_id}
     except HTTPException as http_err:
         raise http_err
@@ -79,14 +79,14 @@ async def get_chat_history(id: str, user_id: str,  category: str = Query(None), 
 
 
 @router.post("/report/{id}")
-async def generate_report(id: str, profile_id: str = Query(None), pdf_report: bool = Query(None), current_user = Depends(get_current_user)):
+async def generate_report(id: str, profile_id: str = Query(None), pdf_report: bool = Query(None), language: str = Query("English"), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         if not id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
         if profile_id is None:
             profile_id = user_id
-        generated_report = await generate_report_from_ai(id, user_id, profile_id, pdf_report)
+        generated_report = await generate_report_from_ai(id, user_id, profile_id, pdf_report, language)
         return {"message": "Report Generated Successfully", "result": generated_report}
     except HTTPException as http_err:
         raise http_err
@@ -98,12 +98,12 @@ async def generate_report(id: str, profile_id: str = Query(None), pdf_report: bo
     
 
 @router.post("/dashboard")
-async def get_dashboard_prediction(profile_id: str = Query(None), current_user = Depends(get_current_user)):
+async def get_dashboard_prediction(profile_id: str = Query(None), language: str = Query("English"), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         if profile_id is None:
             profile_id = user_id
-        text_output, prediction_dict = await fetch_dashboard_predictions(user_id, profile_id)
+        text_output, prediction_dict = await fetch_dashboard_predictions(user_id, profile_id, language)
         return {"message": "Predictions Fetched Successfully", "text": text_output, "predictions": prediction_dict}
     except HTTPException as http_err:
         raise http_err
@@ -115,10 +115,10 @@ async def get_dashboard_prediction(profile_id: str = Query(None), current_user =
     
 
 @router.post("/questions")
-async def get_dynamic_questions(current_user = Depends(get_current_user)):
+async def get_dynamic_questions(language: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        questions = await fetch_dynamic_questions(user_id)
+        questions = await fetch_dynamic_questions(user_id, language)
         return {"message": "Questions Fetched Successfully", "result": questions}
     except HTTPException as http_err:
         raise http_err

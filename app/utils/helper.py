@@ -351,13 +351,13 @@ async def create_conversation(user_id, profile_id, category, first_user_message)
     return str(result.inserted_id)
 
 
-async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str, profile_id: str, conversation_id=None):
+async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str, profile_id: str, conversation_id=None, language=None):
     category = await get_category_from_question(user_question)
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
 
     if not conversation_id:
         conversation_id = await create_conversation(user_id, profile_id, category, user_question)
-    
+
     system_prompt_doc = await db.system_prompts.find_one({"category": category})
 
     if not system_prompt_doc:
@@ -379,6 +379,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     - Today's date is {today}. Use it for time-based calculations.
     - ALWAYS provide astrological references in readable text format. e.g.,
         "Based on D1 chart, Sun is in Sagittarius in house 1", not arrays.
+    - Respond in {language} language.
     """
     
     past_messages = await db.chat_history.find({
@@ -454,14 +455,14 @@ async def save_user_report(user_id, profile_id, report_id, file_url, report_text
 
     return result
 
-async def generate_report_helper(user_details, astrology_data, user_report, pdf_report, user_id, profile_id):
+async def generate_report_helper(user_details, astrology_data, user_report, pdf_report, user_id, profile_id, language):
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
     prompt = user_report.get("prompt", "You are an astrology report generator.")
     report_name = user_report.get("name", "Astrology Report")
     contents = [
         f"Here is my astrological data:\n{astrology_summary}\n\n",
         f"Here's my personal data: {user_details}\n\n",
-        "Generate a detailed, warm, human-sounding astrology report."
+        f"Generate a detailed, warm, human-sounding astrology report in {language} language"
     ]
 
     config = types.GenerateContentConfig(
@@ -644,7 +645,7 @@ async def fetch_user_report(id, user_id, profile_id):
     
 
 
-async def generate_predictions_for_homepage(user_details, astrology_data):
+async def generate_predictions_for_homepage(user_details, astrology_data, language):
     try:
         astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
         prediction_prompt_doc = await db.predictions.find().sort("created_at", -1).to_list(1)
@@ -667,8 +668,8 @@ async def generate_predictions_for_homepage(user_details, astrology_data):
                 "moon_sign": "<string>",
                 "polarity": "<string>",
                 "modality": "<string>"
-            }"""
-
+            }""",
+            f"Respond in {language} language"
         ]
 
 
