@@ -10,7 +10,7 @@ from app.utils.mongo import convert_mongo
 from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details
 
 
-async def fetch_predictions_for_user(id, profile_id, user_question, conversation_id):
+async def fetch_predictions_for_user(id, profile_id, user_question, conversation_id, language):
     try:
         # If profile_id == user_id → use users table
         if profile_id == id:
@@ -18,7 +18,7 @@ async def fetch_predictions_for_user(id, profile_id, user_question, conversation
         else:
             profile_details = await fetch_profile_details(id, profile_id)
         astrology_data = await get_or_fetch_astrology_data(id, profile_id, profile_details)
-        result, category, conversation_id = await get_astrology_prediction(astrology_data, user_question, id, profile_id, conversation_id)
+        result, category, conversation_id = await get_astrology_prediction(astrology_data, user_question, id, profile_id, conversation_id, language)
         return result, category, conversation_id
     except HTTPException:
         raise
@@ -54,7 +54,7 @@ async def fetch_chat_history_for_user(category, id, user_id):
         )
     
 
-async def generate_report_from_ai(id, user_id, profile_id, pdf_report):
+async def generate_report_from_ai(id, user_id, profile_id, pdf_report, language):
     user_report = await fetch_user_report(id, user_id, profile_id)
     if not user_report:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
@@ -65,22 +65,22 @@ async def generate_report_from_ai(id, user_id, profile_id, pdf_report):
     else:
         profile_details = await fetch_profile_details(user_id, profile_id)
     astrology_data = await get_or_fetch_astrology_data(user_id, profile_id, profile_details)
-    generated_report = await generate_report_helper(profile_details, astrology_data, user_report, pdf_report, user_id, profile_id)
+    generated_report = await generate_report_helper(profile_details, astrology_data, user_report, pdf_report, user_id, profile_id, language)
     return generated_report
 
 
-async def fetch_dashboard_predictions(user_id, profile_id):
+async def fetch_dashboard_predictions(user_id, profile_id, language):
     # If profile_id == user_id → use users table
     if profile_id == user_id:
         profile_details = await fetch_user_details(user_id)
     else:
         profile_details = await fetch_profile_details(user_id, profile_id)
     astrology_data = await get_or_fetch_astrology_data(user_id, profile_id, profile_details)
-    text_output, prediction_dict = await generate_predictions_for_homepage(profile_details, astrology_data)
+    text_output, prediction_dict = await generate_predictions_for_homepage(profile_details, astrology_data, language)
     return text_output, prediction_dict
 
 
-async def fetch_dynamic_questions(user_id):
+async def fetch_dynamic_questions(user_id, language):
     try:
         last_conversation = await db.conversations.find_one({"user_id": ObjectId(user_id)}, sort=[("created_at", -1)])
 
@@ -111,7 +111,7 @@ async def fetch_dynamic_questions(user_id):
             Do NOT frame the questions as if AI is asking the user (avoid "Do you", "Are you", "Have you").
 
             Keep each question short and precise (15 to 20 words max).
-
+            Respond in {language} language.
             Return response strictly in JSON format.
 
             {{

@@ -28,11 +28,11 @@ async def add_compatibility(payload: CompatibilityCreate, current_user = Depends
     
 
 @router.post("/report")
-async def get_compatibility_between_profiles(payload: CompatibilityReportCreate, pdf_report: bool = Query(None), current_user = Depends(get_current_user)):
+async def get_compatibility_between_profiles(payload: CompatibilityReportCreate, pdf_report: bool = Query(None), language: str = Query("English"), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         type = "Compatibility" if payload.is_comparison is False else "Comparison"
-        result = await generate_compatibility_report(user_id, payload, pdf_report, type)
+        result = await generate_compatibility_report(user_id, payload, pdf_report, type, language)
         return {"message": f"{type} Report Fetched Successfully", "result": result}
     except HTTPException as http_err:
         raise http_err
@@ -43,12 +43,12 @@ async def get_compatibility_between_profiles(payload: CompatibilityReportCreate,
         )
 
 @router.post("/report/{report_id}/chat")
-async def ask_question_about_report(report_id: str, payload: ChatQuestionPayload, compatibility_report: str = Query(None),  profile_id: str = Query(None), current_user = Depends(get_current_user)):
+async def ask_question_about_report(report_id: str, payload: ChatQuestionPayload, compatibility_report: str = Query(None),  profile_id: str = Query(None), language: str = Query("English"), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         if not report_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
-        answer = await fetch_question_about_report(user_id, report_id, profile_id, payload, compatibility_report)
+        answer = await fetch_question_about_report(user_id, report_id, profile_id, payload, compatibility_report, language)
         return {"message": "Query Answered Successfully", "result": answer}
     except HTTPException as http_err:
         raise http_err
