@@ -46,7 +46,6 @@ async def fetch_reports(category: str = None):
     
 async def fetch_remaining_reports(user_id, profile_id=None):
     try:
-        print(user_id, profile_id)
         query = {
             "user_id": ObjectId(user_id)
         }
