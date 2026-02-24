@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends, Body, Query
 from app.deps.auth_deps import get_current_user
 from app.models.report import ReportCreate, ReportUpdate
 from app.utils.admin import is_user_admin
-from app.services.report_service import add_report_in_db, fetch_reports, fetch_report_by_id, update_report_by_id, delete_report_from_db, add_user_report_to_db, fetch_user_reports
+from app.services.report_service import add_report_in_db, fetch_reports, fetch_report_by_id, update_report_by_id, delete_report_from_db, add_user_report_to_db, fetch_user_reports, fetch_remaining_reports
 import json
 from bson import json_util
 
@@ -40,6 +40,20 @@ async def get_reports(category: str = Query(None), current_user = Depends(get_cu
             detail=f"Error while fetching reports: {str(e)}"
         )
     
+
+@router.get("/remaining")
+async def get_remaining_reports(profile_id: str = Query(None), current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        reports = await fetch_remaining_reports(user_id, profile_id)
+        return {"message": "Reports Fetched Successfully", "result": reports}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching remaining reports: {str(e)}"
+        )
 
 @router.post("/user/{id}")
 async def add_user_report(id: str, profile_id: str = Query(None), current_user = Depends(get_current_user)):

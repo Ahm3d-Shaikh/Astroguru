@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
+from app.utils.mongo import convert_mongo
 from app.services.subscription_service import deduct_user_credits
 
 
@@ -43,6 +44,33 @@ async def fetch_reports(category: str = None):
             detail=f"Error while fetching reports: {str(e)}"
         )
     
+async def fetch_remaining_reports(user_id, profile_id=None):
+    try:
+        print(user_id, profile_id)
+        query = {
+            "user_id": ObjectId(user_id)
+        }
+
+        if profile_id:
+            query["profile_id"] = ObjectId(profile_id)
+        
+        downloaded_reports_cursor = db.user_reports.find(query)
+        downloaded_reports = await downloaded_reports_cursor.to_list(length=None)
+        downloaded_ids = [r["report_id"] for r in downloaded_reports]
+
+        remaining_reports_cursor = db.reports.find(
+            {"_id": {"$nin": downloaded_ids}}
+        )
+        remaining_reports = await remaining_reports_cursor.to_list(length=None)
+
+        return convert_mongo(remaining_reports)
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching remaining reports from db: {str(e)}"
+        )
 
 async def fetch_report_by_id(id):
     try:
