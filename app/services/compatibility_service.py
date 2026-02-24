@@ -33,11 +33,11 @@ async def add_compatibility_prompt(payload):
 
 async def fetch_compatibilities(is_comparison: bool, type: str):
     try:
-        cursor = db.compatibilities.find()
+        cursor = db.compatibilities.find({"is_comparison": is_comparison})
         compatibilities = await cursor.to_list(length=None)
 
         if not compatibilities:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No Reports Found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No {type} Found")
         return compatibilities
     except HTTPException as http_err:
         raise http_err
@@ -98,10 +98,10 @@ async def fetch_compatibility_by_id(id):
         )
 
 
-async def fetch_user_compatibility_reports(user_id, is_comparison):
+async def fetch_user_compatibility_reports(user_id):
     try:
         pipeline = [
-            {"$match": {"user_id": ObjectId(user_id), "is_comparison": is_comparison}},
+            {"$match": {"user_id": ObjectId(user_id)}},
             {
                 "$lookup": {
                     "from": "user_profiles", 
