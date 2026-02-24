@@ -98,10 +98,10 @@ async def fetch_compatibility_by_id(id):
         )
 
 
-async def fetch_user_compatibility_reports(user_id, is_comparison):
+async def fetch_user_compatibility_reports(user_id):
     try:
         pipeline = [
-            {"$match": {"user_id": ObjectId(user_id), "is_comparison": is_comparison}},
+            {"$match": {"user_id": ObjectId(user_id)}},
             {
                 "$lookup": {
                     "from": "user_profiles", 

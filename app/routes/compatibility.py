@@ -76,10 +76,10 @@ async def get_report_chat(report_id: str, compatibility_report: str = Query(None
 
 
 @router.get("/report")
-async def get_user_compatibility_reports(is_comparison: bool = Query(False), current_user = Depends(get_current_user)):
+async def get_user_compatibility_reports(current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        user_reports = await fetch_user_compatibility_reports(user_id, is_comparison)
+        user_reports = await fetch_user_compatibility_reports(user_id)
         result_json = json.loads(json_util.dumps(user_reports))
         return {"message": "User Reports Fetched Successfully", "result": result_json}
     except HTTPException as http_err:
