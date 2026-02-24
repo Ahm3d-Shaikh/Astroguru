@@ -85,7 +85,12 @@ async def fetch_dynamic_questions(user_id, language):
         last_conversation = await db.conversations.find_one({"user_id": ObjectId(user_id)}, sort=[("created_at", -1)])
 
         if not last_conversation:
-            return []
+            return [
+                "What does my zodiac sign say about today?",
+                "How's my love life looking this month?",
+                "Will I see career growth this year?",
+                "Any challenges coming in my Kundali soon?"
+            ]
         
         last_three_questions = await db.chat_history.find(
             {

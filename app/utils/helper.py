@@ -380,6 +380,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     - ALWAYS provide astrological references in readable text format. e.g.,
         "Based on D1 chart, Sun is in Sagittarius in house 1", not arrays.
     - Respond in {language} language.
+    - Always ask follow up questions from the user at the end of your reponse.
     """
     
     past_messages = await db.chat_history.find({
