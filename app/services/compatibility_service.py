@@ -33,11 +33,11 @@ async def add_compatibility_prompt(payload):
 
 async def fetch_compatibilities(is_comparison: bool, type: str):
     try:
-        cursor = db.compatibilities.find({"is_comparison": is_comparison})
+        cursor = db.compatibilities.find()
         compatibilities = await cursor.to_list(length=None)
 
         if not compatibilities:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No {type} Found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No Reports Found")
         return compatibilities
     except HTTPException as http_err:
         raise http_err

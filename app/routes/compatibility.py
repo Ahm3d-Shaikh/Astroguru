@@ -91,12 +91,11 @@ async def get_user_compatibility_reports(is_comparison: bool = Query(False), cur
         )
 
 @router.get("/")
-async def get_compatibilities(is_comparison: bool = Query(False), current_user = Depends(get_current_user)):
+async def get_compatibilities(current_user = Depends(get_current_user)):
     try:
-        type = "Compatibilities" if is_comparison is False else "Comparisons"
-        compatibilities = await fetch_compatibilities(is_comparison, type)
+        compatibilities = await fetch_compatibilities()
         result_json = json.loads(json_util.dumps(compatibilities))
-        return {"message": f"{type} Fetched Successfully", "result": result_json}
+        return {"message": "Reports Fetched Successfully", "result": result_json}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
