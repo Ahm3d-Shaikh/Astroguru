@@ -1,14 +1,15 @@
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart, build_karakamsha_chart, build_arudha_lagna_chart, fetch_profile_details
 from app.services.conversation_service import fetch_conversations
-from app.services.report_service import fetch_user_reports
+from app.services.report_service import fetch_user_reports, fetch_user_reports_for_admin
 from app.utils.mongo import convert_mongo
 from app.clients.gemini_client import client
 from google.genai import types
 import asyncio
+import re
 
 
 
@@ -91,7 +92,7 @@ async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, se
             profile_details = await fetch_profile_details(id, profile_id)
         astrology_data_task = get_or_fetch_astrology_data(id, profile_id, profile_details)
         conversations_task = fetch_conversations(id, profile_id, search_term)
-        user_reports_task = fetch_user_reports(id, profile_id)
+        user_reports_task = fetch_user_reports_for_admin(id, profile_id)
 
         astrology_data, conversations_raw, user_reports_raw = await asyncio.gather(
             astrology_data_task,
@@ -222,4 +223,156 @@ async def edit_user_details(user_id, update_data):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while editing logged in user: {str(e)}"
+        )
+    
+
+
+async def fetch_users_summary():
+    try:
+        now = datetime.now(timezone.utc)
+
+        current_month_start = now.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+
+        if current_month_start.month == 1:
+            prev_month_start = current_month_start.replace(
+                year=current_month_start.year - 1, month=12
+            )
+        else:
+            prev_month_start = current_month_start.replace(
+                month=current_month_start.month - 1
+            )
+
+        prev_month_end = current_month_start
+        users_count = await db.users.count_documents({"role": "user", "is_onboarded": True})
+        male_users_count = await db.users.count_documents({
+            "role": "user",
+            "is_onboarded": True,
+            "gender": re.compile("^male$", re.IGNORECASE) 
+        })
+
+        female_users_count = await db.users.count_documents({
+            "role": "user",
+            "is_onboarded": True,
+            "gender": re.compile("^female$", re.IGNORECASE)
+        })
+
+        def build_gender_filter(gender):
+            return {
+                "role": "user",
+                "is_onboarded": True,
+                "gender": re.compile(f"^{gender}$", re.IGNORECASE)
+            }
+
+        current_month_users = await db.users.count_documents({
+            "role": "user",
+            "is_onboarded": True,
+            "created_at": {"$gte": current_month_start}
+        })
+
+        previous_month_users = await db.users.count_documents({
+            "role": "user",
+            "is_onboarded": True,
+            "created_at": {
+                "$gte": prev_month_start,
+                "$lt": prev_month_end
+            }
+        })
+
+        current_month_males = await db.users.count_documents({
+            **build_gender_filter("male"),
+            "created_at": {"$gte": current_month_start}
+        })
+        previous_month_males = await db.users.count_documents({
+            **build_gender_filter("male"),
+            "created_at": {"$gte": prev_month_start, "$lt": prev_month_end}
+        })
+
+        current_month_females = await db.users.count_documents({
+            **build_gender_filter("female"),
+            "created_at": {"$gte": current_month_start}
+        })
+        previous_month_females = await db.users.count_documents({
+            **build_gender_filter("female"),
+            "created_at": {"$gte": prev_month_start, "$lt": prev_month_end}
+        })
+
+
+        total_revenue_pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total_revenue": {"$sum": "$total_spent"}  
+                }
+            }
+        ]
+
+        result = await db.user_wallet.aggregate(total_revenue_pipeline).to_list(length=1)
+        total_revenue = result[0]["total_revenue"] if result else 0
+
+
+        async def get_revenue_between(start, end=None):
+            match_stage = {
+                "updated_at": {"$gte": start}
+            }
+            if end:
+                match_stage["updated_at"]["$lt"] = end
+
+            pipeline = [
+                {"$match": match_stage},
+                {
+                    "$group": {
+                        "_id": None,
+                        "total": {"$sum": "$total_spent"}
+                    }
+                }
+            ]
+
+            result = await db.user_wallet.aggregate(
+                pipeline
+            ).to_list(length=1)
+
+            return result[0]["total"] if result else 0
+
+        current_month_revenue = await get_revenue_between(current_month_start)
+        previous_month_revenue = await get_revenue_between(
+            prev_month_start,
+            prev_month_end
+        )
+
+        def calculate_percentage_change(current, previous):
+            if previous == 0:
+                return 100 if current > 0 else 0
+            return ((current - previous) / previous) * 100
+
+        user_trend = calculate_percentage_change(
+            current_month_users,
+            previous_month_users
+        )
+
+        revenue_trend = calculate_percentage_change(
+            current_month_revenue,
+            previous_month_revenue
+        )
+
+        male_trend = calculate_percentage_change(current_month_males, previous_month_males)
+        female_trend = calculate_percentage_change(current_month_females, previous_month_females)
+
+        return {
+            "users": users_count,
+            "users_trend": round(user_trend, 2),
+            "males": male_users_count,
+            "male_trend": round(male_trend, 2),
+            "females": female_users_count,
+            "female_trend": round(female_trend, 2),
+            "revenue": round(total_revenue),
+            "revenue_trend": round(revenue_trend, 2)
+        }
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user summary from db: {str(e)}"
         )
