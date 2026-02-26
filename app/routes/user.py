@@ -1,7 +1,7 @@
 from fastapi import HTTPException, APIRouter, status, Depends, Body, Query
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
-from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id
+from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id, fetch_users_summary
 from app.utils.helper import fetch_chart_image
 import json
 from bson import json_util
@@ -61,6 +61,22 @@ async def get_dashboard_details_for_user(id: str, profile_id: str = Query(None),
             detail=f"Error while fetching dashboard user details: {str(e)}"
         )
     
+
+@router.get("/summary")
+async def get_users_summary(current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+
+        summary = await fetch_users_summary()
+        return {"message": "Users Summary Fetched Successfully", "result": summary}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user summary: {str(e)}"
+        )
 @router.post("/user-details/chart-image/{id}")
 async def get_chart_image(id: str, chart: str = Query(), profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
