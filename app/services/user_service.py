@@ -4,7 +4,7 @@ from bson import ObjectId
 from datetime import datetime, timezone
 from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart, build_karakamsha_chart, build_arudha_lagna_chart, fetch_profile_details
 from app.services.conversation_service import fetch_conversations
-from app.services.report_service import fetch_user_reports
+from app.services.report_service import fetch_user_reports, fetch_user_reports_for_admin
 from app.utils.mongo import convert_mongo
 from app.clients.gemini_client import client
 from google.genai import types
@@ -92,7 +92,7 @@ async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, se
             profile_details = await fetch_profile_details(id, profile_id)
         astrology_data_task = get_or_fetch_astrology_data(id, profile_id, profile_details)
         conversations_task = fetch_conversations(id, profile_id, search_term)
-        user_reports_task = fetch_user_reports(id, profile_id)
+        user_reports_task = fetch_user_reports_for_admin(id, profile_id)
 
         astrology_data, conversations_raw, user_reports_raw = await asyncio.gather(
             astrology_data_task,

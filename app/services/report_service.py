@@ -148,7 +148,61 @@ async def add_user_report_to_db(id, user_id, profile_id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while adding user report to db: {str(e)}"
         )
-    
+
+
+async def fetch_user_reports_for_admin(user_id, profile_id=None):
+    try:
+        match_query = {
+            "user_id": ObjectId(user_id)
+        }
+        if profile_id:
+            match_query["profile_id"] = ObjectId(profile_id)
+
+        pipeline = [
+            {"$match": match_query},
+            {
+                "$lookup": {
+                    "from": "reports",           
+                    "localField": "report_id",   
+                    "foreignField": "_id",       
+                    "as": "report_info"          
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$report_info",
+                    "preserveNullAndEmptyArrays": True  
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "user_id": 1,
+                    "profile_id": 1,
+                    "report_id": 1,
+                    "file_url": 1,
+                    "report_text": 1,            
+                    "report_name": "$report_info.name"  
+                }
+            }
+        ]
+
+        user_reports = await db.user_reports.aggregate(pipeline).to_list(length=None)
+
+        if len(user_reports) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Downloaded Reports Found For The User"
+            )
+
+        return user_reports
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user reports: {str(e)}"
+        )
 
 async def fetch_user_reports(user_id, profile_id=None):
     try:
