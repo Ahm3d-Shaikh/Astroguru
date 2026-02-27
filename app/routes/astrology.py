@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Body, Query
-from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions, add_chat_like_in_db, add_chat_dislike_in_db, fetch_user_likes, fetch_user_dislikes
+from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions, add_chat_like_in_db, add_chat_dislike_in_db, fetch_user_likes, fetch_user_dislikes, fetch_user_profile_summary
 from app.models.user_question import UserQuestionObj, ChatLikePayload
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
@@ -198,4 +198,24 @@ async def get_user_dislikes(id: str, profile_id: str = Query(None), current_user
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching user dislikes: {str(e)}"
+        )
+    
+
+@router.get("/profile-summary/{id}")
+async def get_user_profile_summary(id: str, profile_id: str = Query(None), current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        if profile_id is None:
+            profile_id = id
+
+        profile_summary = await fetch_user_profile_summary(id, profile_id)
+        return {"message": "Profile Summary Fetched Successfully", "result": profile_summary}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching profile summary: {str(e)}"
         )
