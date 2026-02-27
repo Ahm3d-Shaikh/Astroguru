@@ -293,7 +293,8 @@ async def fetch_user_profile_summary(profile_details, conversations, reports):
         """
         contents = [
         f"Conversations: \n{conversations}\n\n"
-        f"Here's the details of the user: \n{profile_details}\n\n"
+        f"Here's the details of the user: \n{profile_details}\n\n",
+        f"User Reports: \n{reports}\n\n"
         ]
 
 
