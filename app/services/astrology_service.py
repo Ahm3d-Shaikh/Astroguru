@@ -7,6 +7,7 @@ import json
 import re
 from app.clients.gemini_client import client
 from app.utils.mongo import convert_mongo
+from app.services.conversation_service import fetch_conversations
 from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details
 
 
@@ -256,4 +257,65 @@ async def fetch_user_dislikes(id, profile_id):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching user likes: {str(e)}"
+        )
+    
+
+
+async def fetch_user_profile_summary(profile_details, conversations, reports):
+    try:
+        system_prompt = """
+        Generate a user profile summary based on the user details and the conversations which the user had with the AI chat.
+        Example Response:
+
+        User Name: Riya Sharma
+        User ID: AST-10245
+        Basic Details
+
+        DOB: 14 Aug 1996
+        Time of Birth: 03:42 AM
+        Place of Birth: Jaipur, India
+        Account Created: 12 Jan 2026
+        Last Active: 24 Feb 2026
+        
+        Key Facts from AI Chats (Auto-Extracted)
+
+        Recently changed job (Sep 2025)
+        Breakup in Nov 2025
+        Planning to move abroad
+        Frequently worried about career growth
+        Often asks about marriage timing
+        Usage Insights
+
+        Most discussed topic: Career
+        Active hours: Late night
+        Reports viewed: 8
+
+        """
+        contents = [
+        f"Conversations: \n{conversations}\n\n"
+        f"Here's the details of the user: \n{profile_details}\n\n",
+        f"User Reports: \n{reports}\n\n"
+        ]
+
+
+        config = types.GenerateContentConfig(
+            temperature = 0.2,
+            max_output_tokens = 1000,
+            system_instruction = system_prompt
+        )
+
+        response = await client.aio.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=contents,
+            config=config,
+        )
+
+        reply = response.text
+        return reply
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user profile summary: {str(e)}"
         )

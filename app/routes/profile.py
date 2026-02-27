@@ -12,8 +12,8 @@ router = APIRouter()
 async def create_profile(payload: UserProfileCreate, current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        await add_profile_to_db(payload, user_id)
-        return {"message": "User Profile Added Successfully"}
+        added_profile = await add_profile_to_db(payload, user_id)
+        return {"message": "User Profile Added Successfully", "result": added_profile}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

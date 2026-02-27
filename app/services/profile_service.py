@@ -3,6 +3,7 @@ from app.db.mongo import db
 from app.utils.helper import get_zodiac_sign
 from datetime import datetime
 from bson import ObjectId
+from app.utils.mongo import convert_mongo
 
 async def add_profile_to_db(payload, user_id):
     try:
@@ -21,7 +22,7 @@ async def add_profile_to_db(payload, user_id):
             minute=tob_time.minute,
         )
 
-        await db.user_profiles.insert_one({
+        result = await db.user_profiles.insert_one({
             "user_id": ObjectId(user_id),
             "name":payload.name,
             "date_of_birth": dob_str,
@@ -32,6 +33,9 @@ async def add_profile_to_db(payload, user_id):
             "lat": payload.lat,
             "long": payload.long
         })
+
+        added_profile = await db.user_profiles.find_one({"_id": result.inserted_id})
+        return convert_mongo(added_profile)
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, get_zodiac_sign, build_indu_lagna_chart, build_karakamsha_chart, build_arudha_lagna_chart, fetch_profile_details
 from app.services.conversation_service import fetch_conversations
 from app.services.report_service import fetch_user_reports, fetch_user_reports_for_admin
+from app.services.astrology_service import fetch_user_profile_summary
 from app.utils.mongo import convert_mongo
 from app.clients.gemini_client import client
 from google.genai import types
@@ -101,7 +102,7 @@ async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, se
             return_exceptions=True
 
         )
-
+        profile_summary = await fetch_user_profile_summary(profile_details, conversations_raw, user_reports_raw)
         indu_lagna = astrology_data.get("indu_lagna")
         karakamsha_lagna = astrology_data.get("karakamsha_lagna")
         arudha_lagna = astrology_data.get("arudha_lagna")
@@ -132,7 +133,8 @@ async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, se
             "reports": user_reports,
             "indu_lagna_chart": indu_lagna_chart,
             "karakamsha_lagna_chart": karakamsha_lagna_chart,
-            "arudha_lagna_chart": arudha_lagna_chart
+            "arudha_lagna_chart": arudha_lagna_chart,
+            "profile_summary": profile_summary
         }
     except HTTPException as http_err:
         raise http_err
