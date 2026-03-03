@@ -59,12 +59,14 @@ async def ask_question_about_report(report_id: str, payload: ChatQuestionPayload
         )    
 
 @router.get("/report/{report_id}/chat")
-async def get_report_chat(report_id: str, compatibility_report: str = Query(None), profile_id: str = Query(None), current_user = Depends(get_current_user)):
+async def get_report_chat(report_id: str, compatibility_report: str = Query(None), language: str = Query("English"), profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
         if not report_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
-        chat_history = await fetch_report_chat(user_id, report_id, profile_id, compatibility_report)
+        if profile_id is None:
+            profile_id = user_id
+        chat_history = await fetch_report_chat(user_id, report_id, profile_id, compatibility_report, language)
         return {"message": "Query Answered Successfully", "result": chat_history}
     except HTTPException as http_err:
         raise http_err

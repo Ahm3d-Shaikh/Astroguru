@@ -35,6 +35,7 @@ async def add_profile_to_db(payload, user_id):
         })
 
         added_profile = await db.user_profiles.find_one({"_id": result.inserted_id})
+        added_profile["zodiac_sign"] = get_zodiac_sign(dob_str)
         return convert_mongo(added_profile)
     except HTTPException as http_err:
         raise http_err
