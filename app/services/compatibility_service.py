@@ -3,6 +3,7 @@ from app.db.mongo import db
 from bson import ObjectId
 from datetime import datetime
 from app.utils.helper import fetch_profile_details, get_or_fetch_astrology_data, markdown_to_plain, get_zodiac_sign
+from app.services.astrology_service import generate_report_from_ai
 from app.services.subscription_service import deduct_user_credits
 from app.clients.gemini_client import client
 from app.utils.mongo import convert_mongo
@@ -376,7 +377,6 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
             }
         
         report = await report_collection.find_one(report_filter)
-
         if not report:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -384,7 +384,6 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
             )
 
         report_text = report["report_text"]
-
         chat = await chat_collection.find_one(chat_filter)
 
         if not chat:
@@ -392,7 +391,6 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chat session not found"
             )
-        
         previous_messages = chat.get("messages", [])
         messages = [
             {
@@ -455,7 +453,7 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
     
 
 
-async def fetch_report_chat(user_id, report_id, profile_id, compatibility_report):
+async def fetch_report_chat(user_id, report_id, profile_id, compatibility_report, language):
     try:
         query = {"report_id": ObjectId(report_id), "user_id": ObjectId(user_id)}
         if not profile_id:
@@ -467,16 +465,36 @@ async def fetch_report_chat(user_id, report_id, profile_id, compatibility_report
             query["profile_id"] = ObjectId(profile_id)
         report_chat = await chat_collection.find_one(query)
         if not report_chat:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report Chat History Not Found")
-
+            report = await generate_report_from_ai(report_id, user_id, profile_id, False, language)
+            await chat_collection.update_one(
+                query,
+                {
+                    "$push": {
+                        "messages": {
+                            "role": "assistant",
+                            "content": report,
+                        }
+                    },
+                    "$set": {
+                        "updated_at": datetime.utcnow()
+                    }
+                },
+                upsert=True
+            )
+            report_chat = await chat_collection.find_one(query)
+            if not report_chat:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Report Chat History Not Found"
+                )
         report_chat["_id"] = str(report_chat["_id"])
         report_chat["report_id"] = str(report_chat["report_id"])
         report_chat["user_id"] = str(report_chat["user_id"])
 
         if "profile_id" in report_chat:
             report_chat["profile_id"] = str(report_chat["profile_id"])
-        return report_chat
 
+        return report_chat
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
