@@ -4,12 +4,15 @@ from app.utils.helper import get_zodiac_sign
 from datetime import datetime
 from bson import ObjectId
 from app.utils.mongo import convert_mongo
+import pytz
 
 async def add_profile_to_db(payload, user_id):
     try:
         profile_doc = payload.dict()
         dob_date = profile_doc["date_of_birth"]          
-        tob_time = profile_doc["time_of_birth"]          
+        tob_time = profile_doc["time_of_birth"]  
+        tz_name = profile_doc["timezone"]
+        
 
         dob_str = dob_date.isoformat()                    
         tob_str = tob_time.strftime("%H:%M")              
@@ -22,6 +25,11 @@ async def add_profile_to_db(payload, user_id):
             minute=tob_time.minute,
         )
 
+        tz = pytz.timezone(tz_name)
+        birth_localized = tz.localize(birth_timestamp)
+
+        utc_offset = birth_localized.utcoffset().total_seconds() / 3600
+
         result = await db.user_profiles.insert_one({
             "user_id": ObjectId(user_id),
             "name":payload.name,
@@ -29,6 +37,8 @@ async def add_profile_to_db(payload, user_id):
             "time_of_birth": tob_str,
             "place_of_birth": payload.place_of_birth,
             "birth_timestamp": birth_timestamp,
+            "timezone": tz_name,
+            "utc_offset": utc_offset,
             "gender": payload.gender,
             "lat": payload.lat,
             "long": payload.long

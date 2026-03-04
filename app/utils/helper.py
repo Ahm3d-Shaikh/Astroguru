@@ -97,7 +97,7 @@ async def fetch_chart_image(id, chart, profile_id: str | None = None):
             "min": int(profile_details["time_of_birth"].split(":")[1]),
             "lat": profile_details.get("lat"),  
             "lon": profile_details.get("long"), 
-            "tzone": profile_details.get("tzone", 5.5),
+            "tzone": profile_details.get("utc_offset", 5.5),
             "image_type": "png"
         }
 
@@ -138,9 +138,8 @@ async def fetch_kundli(user_details: dict):
         "min": int(user_details["time_of_birth"].split(":")[1]),
         "lat": user_details.get("lat"),  
         "lon": user_details.get("long"), 
-        "tzone": user_details.get("tzone", 5.5)
+        "tzone": user_details.get("utc_offset", 5.5)
     }
-
 
     D_CHART_IDS = ["d1","d2","d3","d4","d5","d7","d8","d9","d10","d12","d16","d20","d24","d27","d30","d40","d45","d60"]
 

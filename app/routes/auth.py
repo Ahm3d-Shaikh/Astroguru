@@ -10,6 +10,7 @@ from app.services.subscription_service import fetch_user_coins, add_user_credits
 from datetime import datetime, timedelta
 from app.db.mongo import db
 from bson import ObjectId
+import pytz
 
 
 router = APIRouter()
@@ -21,7 +22,9 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
         user_doc_raw = payload.dict()
 
         dob_date = user_doc_raw["date_of_birth"]          
-        tob_time = user_doc_raw["time_of_birth"]          
+        tob_time = user_doc_raw["time_of_birth"]  
+        tz_name = user_doc_raw["timezone"]
+        
 
         dob_str = dob_date.isoformat()                    
         tob_str = tob_time.strftime("%H:%M")              
@@ -34,6 +37,11 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
             minute=tob_time.minute,
         )
 
+        tz = pytz.timezone(tz_name)
+        birth_localized = tz.localize(birth_timestamp)
+
+        utc_offset = birth_localized.utcoffset().total_seconds() / 3600
+
         user_doc = {
             "name": user_doc_raw["name"],
             "gender": user_doc_raw["gender"],
@@ -43,6 +51,8 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
             "place_of_birth": user_doc_raw["place_of_birth"],
             "lat": user_doc_raw["lat"],
             "long": user_doc_raw["long"], 
+            "timezone": tz_name,
+            "utc_offset": utc_offset,
             "is_onboarded": True, 
             "created_at": datetime.utcnow(),     
         }
