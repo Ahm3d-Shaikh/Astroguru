@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Body, Query
 from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions, add_chat_like_in_db, add_chat_dislike_in_db, fetch_user_likes, fetch_user_dislikes, fetch_user_profile_summary
+from app.services.subscription_service import fetch_user_coins
 from app.models.user_question import UserQuestionObj, ChatLikePayload
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
@@ -18,7 +19,8 @@ async def fetch_astrology_details(user_question_object: UserQuestionObj, profile
             profile_id = user_id
         conversation_id = user_question_object.conversation_id
         result, category, new_conversation_id = await fetch_predictions_for_user(user_id, profile_id, user_question_object.user_question, conversation_id, language)
-        return {"message": "Prediction Fetched Successfully", "result": result, "category": category, "conversation_id": new_conversation_id}
+        coins = await fetch_user_coins(user_id)
+        return {"message": "Prediction Fetched Successfully", "result": result, "category": category, "conversation_id": new_conversation_id, "coins": coins}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -87,7 +89,8 @@ async def generate_report(id: str, profile_id: str = Query(None), pdf_report: bo
         if profile_id is None:
             profile_id = user_id
         generated_report = await generate_report_from_ai(id, user_id, profile_id, pdf_report, language)
-        return {"message": "Report Generated Successfully", "result": generated_report}
+        coins = await fetch_user_coins(user_id)
+        return {"message": "Report Generated Successfully", "result": generated_report, "coins": coins}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

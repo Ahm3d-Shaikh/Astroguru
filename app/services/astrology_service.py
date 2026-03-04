@@ -8,7 +8,7 @@ import re
 from app.clients.gemini_client import client
 from app.utils.mongo import convert_mongo
 from app.services.conversation_service import fetch_conversations
-from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details
+from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details, get_category_from_question
 
 
 async def fetch_predictions_for_user(id, profile_id, user_question, conversation_id, language):
@@ -87,10 +87,22 @@ async def fetch_dynamic_questions(user_id, language):
 
         if not last_conversation:
             return [
-                "What does my zodiac sign say about today?",
-                "How's my love life looking this month?",
-                "Will I see career growth this year?",
-                "Any challenges coming in my Kundali soon?"
+                {
+                    "question": "What does my zodiac sign say about today?",
+                    "category": "future prediction"
+                },
+                {
+                    "question": "How's my love life looking this month?",
+                    "category": "love"
+                },
+                {
+                    "question": "Will I see career growth this year?",
+                    "category": "career"
+                },
+                {
+                    "question": "Any challenges coming in my Kundali soon?",
+                    "category": "future prediction"
+                }
             ]
         
         last_three_questions = await db.chat_history.find(
@@ -145,7 +157,14 @@ async def fetch_dynamic_questions(user_id, language):
         cleaned_text = re.sub(r"```json|```", "", raw_text).strip()
         parsed = json.loads(cleaned_text)
         suggested_questions = parsed["questions"]
-        return suggested_questions
+        suggested_questions_with_categories = list()
+        for question in suggested_questions:
+            category = await get_category_from_question(question)
+            suggested_questions_with_categories.append({
+                "question": question,
+                "category": category
+            })
+        return suggested_questions_with_categories
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

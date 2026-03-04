@@ -4,6 +4,7 @@ from app.utils.admin import is_user_admin
 import json
 from bson import json_util
 from app.services.compatibility_service import add_compatibility_prompt, fetch_compatibilities, delete_compatibility_from_db, update_compatibility_by_id, fetch_compatibility_by_id, generate_compatibility_report, fetch_user_compatibility_reports, fetch_question_about_report, fetch_report_chat
+from app.services.subscription_service import fetch_user_coins
 from app.models.compatibility import CompatibilityCreate, CompatibilityUpdate, CompatibilityReportCreate
 from app.models.user_question import ChatQuestionPayload
 
@@ -33,7 +34,8 @@ async def get_compatibility_between_profiles(payload: CompatibilityReportCreate,
         user_id = current_user["_id"]
         type = "Compatibility" if payload.is_comparison is False else "Comparison"
         result = await generate_compatibility_report(user_id, payload, pdf_report, type, language)
-        return {"message": f"{type} Report Fetched Successfully", "result": result}
+        coins = await fetch_user_coins(user_id)
+        return {"message": f"{type} Report Fetched Successfully", "result": result, "coins": coins}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -49,7 +51,8 @@ async def ask_question_about_report(report_id: str, payload: ChatQuestionPayload
         if not report_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
         answer = await fetch_question_about_report(user_id, report_id, profile_id, payload, compatibility_report, language)
-        return {"message": "Query Answered Successfully", "result": answer}
+        coins = await fetch_user_coins(user_id)
+        return {"message": "Query Answered Successfully", "result": answer, "coins": coins}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

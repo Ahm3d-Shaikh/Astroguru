@@ -1,6 +1,7 @@
 from pydantic import BaseModel, constr, field_validator
 from typing import Annotated, Optional
 from datetime import time, date
+import pytz
 
 
 class UserProfileCreate(BaseModel):
@@ -11,6 +12,8 @@ class UserProfileCreate(BaseModel):
     place_of_birth: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     lat: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     long: Annotated[str, constr(strip_whitespace=True, min_length=1)]
+    timezone: Annotated[str, constr(strip_whitespace=True, min_length=1)] 
+
 
     @field_validator("lat", "long")
     def lat_long_must_be_nonempty(cls, v, info):
@@ -20,6 +23,12 @@ class UserProfileCreate(BaseModel):
             val = float(v)
         except ValueError:
             raise ValueError(f"{info.field_name} must be a valid number")
+        return v
+    
+    @field_validator("timezone")
+    def validate_timezone(cls, v):
+        if v not in pytz.all_timezones:
+            raise ValueError(f"Invalid timezone: {v}")
         return v
     
 
