@@ -58,3 +58,16 @@ async def delete_conversation_from_db(id, user_id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while deleting conversation in db: {str(e)}"
         )
+    
+
+async def delete_all_user_conversations(user_id):
+    try:
+        await db.conversations.delete_many({"user_id": ObjectId(user_id)})
+        await db.chat_history.delete_many({"user_id": ObjectId(user_id)})
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while deleting user conversations: {str(e)}"
+        )

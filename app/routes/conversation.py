@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from app.deps.auth_deps import get_current_user
-from app.services.conversation_service import fetch_conversations, delete_conversation_from_db, edit_conversation_in_db
+from app.services.conversation_service import fetch_conversations, delete_conversation_from_db, edit_conversation_in_db, delete_all_user_conversations
 from app.models.conversation import ConversationUpdate
 import json
 from bson import json_util
@@ -54,4 +54,20 @@ async def delete_conversation(id: str, current_user = Depends(get_current_user))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while deleting conversation: {str(e)}"
+        )
+    
+
+
+@router.delete("/")
+async def delete_all_conversations(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await delete_all_user_conversations(user_id)
+        return {"message": "Conversations Deleted Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while deleting conversations: {str(e)}"
         )
