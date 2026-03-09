@@ -338,3 +338,25 @@ async def fetch_user_profile_summary(profile_details, conversations, reports):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching user profile summary: {str(e)}"
         )
+    
+
+async def edit_message_in_chat(id, user_id, payload):
+    try:
+        await db.chat_history.update_one(
+            {
+            "_id": ObjectId(id),
+            "user_id": ObjectId(user_id)
+            },
+            {
+                "$set": {
+                    "message": payload.message
+                }
+            }
+        )
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while editing message in db: {str(e)}"
+        )
