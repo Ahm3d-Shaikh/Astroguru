@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Body, Query
-from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions, add_chat_like_in_db, add_chat_dislike_in_db, fetch_user_likes, fetch_user_dislikes, fetch_user_profile_summary
+from app.services.astrology_service import fetch_predictions_for_user, fetch_chat_history_for_user, generate_report_from_ai, fetch_dashboard_predictions, fetch_dynamic_questions, add_chat_like_in_db, add_chat_dislike_in_db, fetch_user_likes, fetch_user_dislikes, fetch_user_profile_summary, edit_message_in_chat, delete_message_from_db
 from app.services.subscription_service import fetch_user_coins
 from app.models.user_question import UserQuestionObj, ChatLikePayload
+from app.models.conversation import ChatUpdatePayload
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
 from app.utils.enums.category import Category
@@ -221,4 +222,34 @@ async def get_user_profile_summary(id: str, profile_id: str = Query(None), curre
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching profile summary: {str(e)}"
+        )
+    
+
+@router.patch("/message/{id}")
+async def edit_message(id: str, payload: ChatUpdatePayload, current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await edit_message_in_chat(id, user_id, payload)
+        return {"message": "Message Edited Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while editing message: {str(e)}"
+        )
+    
+
+@router.delete("/message/{id}")
+async def delete_message(id: str, current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await delete_message_from_db(id, user_id)
+        return {"message": "Message Deleted Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while deleting message: {str(e)}"
         )
