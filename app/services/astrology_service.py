@@ -360,3 +360,15 @@ async def edit_message_in_chat(id, user_id, payload):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while editing message in db: {str(e)}"
         )
+    
+
+async def delete_message_from_db(id, user_id):
+    try:
+        await db.chat_history.delete_one({"_id": ObjectId(id), "user_id": ObjectId(user_id)})
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while deleting message from db: {str(e)}"
+        )
