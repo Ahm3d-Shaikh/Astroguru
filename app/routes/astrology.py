@@ -19,9 +19,9 @@ async def fetch_astrology_details(user_question_object: UserQuestionObj, profile
         if profile_id is None:
             profile_id = user_id
         conversation_id = user_question_object.conversation_id
-        result, category, new_conversation_id = await fetch_predictions_for_user(user_id, profile_id, user_question_object.user_question, conversation_id, language)
+        result, category, new_conversation_id, message_id = await fetch_predictions_for_user(user_id, profile_id, user_question_object.user_question, conversation_id, language)
         coins = await fetch_user_coins(user_id)
-        return {"message": "Prediction Fetched Successfully", "result": result, "category": category, "conversation_id": new_conversation_id, "coins": coins}
+        return {"message": "Prediction Fetched Successfully", "result": result, "category": category, "conversation_id": new_conversation_id, "coins": coins, "message_id": message_id}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
