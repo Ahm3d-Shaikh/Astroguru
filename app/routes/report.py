@@ -3,6 +3,7 @@ from app.deps.auth_deps import get_current_user
 from app.models.report import ReportCreate, ReportUpdate
 from app.utils.admin import is_user_admin
 from app.services.report_service import add_report_in_db, fetch_reports, fetch_report_by_id, update_report_by_id, delete_report_from_db, add_user_report_to_db, fetch_user_reports, fetch_remaining_reports
+from app.services.subscription_service import fetch_user_coins
 import json
 from bson import json_util
 
@@ -64,7 +65,8 @@ async def add_user_report(id: str, profile_id: str = Query(None), current_user =
         if not profile_id:
             profile_id = user_id
         await add_user_report_to_db(id, user_id, profile_id)
-        return {"message": "User Report Added Successfully"}
+        coins = await fetch_user_coins(user_id)
+        return {"message": "User Report Added Successfully", "coins": coins}
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
