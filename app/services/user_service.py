@@ -260,6 +260,12 @@ async def fetch_users_summary():
             "gender": re.compile("^female$", re.IGNORECASE)
         })
 
+        other_users_count = await db.users.count_documents({
+            "role": "user",
+            "is_onboarded": True,
+            "gender": re.compile("^other$", re.IGNORECASE)
+        })
+
         def build_gender_filter(gender):
             return {
                 "role": "user",
@@ -297,6 +303,15 @@ async def fetch_users_summary():
         })
         previous_month_females = await db.users.count_documents({
             **build_gender_filter("female"),
+            "created_at": {"$gte": prev_month_start, "$lt": prev_month_end}
+        })
+
+        current_month_other = await db.users.count_documents({
+            **build_gender_filter("other"),
+            "created_at": {"$gte": current_month_start}
+        })
+        previous_month_other = await db.users.count_documents({
+            **build_gender_filter("other"),
             "created_at": {"$gte": prev_month_start, "$lt": prev_month_end}
         })
 
@@ -360,6 +375,7 @@ async def fetch_users_summary():
 
         male_trend = calculate_percentage_change(current_month_males, previous_month_males)
         female_trend = calculate_percentage_change(current_month_females, previous_month_females)
+        other_trend = calculate_percentage_change(current_month_other, previous_month_other)
 
         return {
             "users": users_count,
@@ -368,6 +384,8 @@ async def fetch_users_summary():
             "male_trend": round(male_trend, 2),
             "females": female_users_count,
             "female_trend": round(female_trend, 2),
+            "other": other_users_count,
+            "other_trend": round(other_trend, 2),
             "revenue": round(total_revenue),
             "revenue_trend": round(revenue_trend, 2)
         }

@@ -19,8 +19,8 @@ async def fetch_predictions_for_user(id, profile_id, user_question, conversation
         else:
             profile_details = await fetch_profile_details(id, profile_id)
         astrology_data = await get_or_fetch_astrology_data(id, profile_id, profile_details)
-        result, category, conversation_id = await get_astrology_prediction(astrology_data, user_question, id, profile_id, conversation_id, language)
-        return result, category, conversation_id
+        result, category, conversation_id, message_id = await get_astrology_prediction(astrology_data, user_question, id, profile_id, conversation_id, language)
+        return result, category, conversation_id, message_id
     except HTTPException:
         raise
     except Exception as e:

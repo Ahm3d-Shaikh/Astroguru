@@ -325,7 +325,7 @@ async def get_category_from_question(question):
 
 
 async def save_chat_in_db(user_id, profile_id, role, conversation_id,  message, category, created_at=None):
-    await db.chat_history.insert_one({
+    result = await db.chat_history.insert_one({
         "user_id": ObjectId(user_id),
         "profile_id": ObjectId(profile_id),
         "role": role,
@@ -336,6 +336,8 @@ async def save_chat_in_db(user_id, profile_id, role, conversation_id,  message, 
         "is_disliked": False,
         "created_at": created_at or datetime.utcnow()
     })
+
+    return str(result.inserted_id)
 
 
 async def create_conversation(user_id, profile_id, category, first_user_message):
@@ -416,13 +418,12 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     user_created_at = now
     assistant_created_at = now + timedelta(seconds=1)
 
-    await asyncio.gather(
-    save_chat_in_db(user_id, profile_id, "user", conversation_id, user_question, category, user_created_at),
-    save_chat_in_db(user_id, profile_id, "assistant", conversation_id, reply, category, assistant_created_at),
-    deduct_user_credits(user_id, 1, "1 Chat Consumed")  
-    )
+    await save_chat_in_db(user_id, profile_id, "user", conversation_id, user_question, category, user_created_at)
+    message_id = await save_chat_in_db(user_id, profile_id, "assistant", conversation_id, reply, category, assistant_created_at)
+    await deduct_user_credits(user_id, 1, "1 Chat Consumed")
+    
 
-    return reply, category, conversation_id
+    return reply, category, conversation_id, message_id
 
 
 def markdown_to_plain(text: str) -> str:
