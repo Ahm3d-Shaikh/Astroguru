@@ -89,7 +89,7 @@ async def generate_report(id: str, profile_id: str = Query(None), pdf_report: bo
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Report ID Is Required")
         if profile_id is None:
             profile_id = user_id
-        generated_report = await generate_report_from_ai(id, user_id, profile_id, pdf_report, language)
+        generated_report, conversation_id = await generate_report_from_ai(id, user_id, profile_id, pdf_report, language)
         coins = await fetch_user_coins(user_id)
         return {"message": "Report Generated Successfully", "result": generated_report, "coins": coins}
     except HTTPException as http_err:

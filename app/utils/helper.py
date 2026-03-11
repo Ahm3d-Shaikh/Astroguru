@@ -619,7 +619,7 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
 
     file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"
     await save_user_report(user_id, profile_id, user_report["_id"], file_url, report_text)
-    return file_url
+    return file_url, None
 
 
 async def fetch_user_report(id, user_id, profile_id):
