@@ -287,7 +287,9 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
 
         pdf.ln(5)
 
-        pdf.set_y(-20)  
+        if pdf.get_y() > 260:
+            pdf.add_page()
+
         pdf.set_font("NotoSans", "I", 10)
         pdf.cell(
             0,
