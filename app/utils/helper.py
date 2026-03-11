@@ -575,7 +575,9 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
 
     pdf.ln(5)
 
-    pdf.set_y(-20)  
+    if pdf.get_y() > 260:
+        pdf.add_page()
+
     pdf.set_font("NotoSans", "I", 10)
     pdf.cell(
         0,
