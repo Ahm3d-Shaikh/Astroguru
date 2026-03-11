@@ -204,6 +204,62 @@ async def fetch_user_reports_for_admin(user_id, profile_id=None):
             detail=f"Error while fetching user reports: {str(e)}"
         )
 
+async def fetch_user_compatibility_reports_for_admin(user_id, profile_id=None):
+    try:
+        match_query = {
+            "user_id": ObjectId(user_id)
+        }
+        if profile_id:
+            match_query["profile_id"] = ObjectId(profile_id)
+
+        pipeline = [
+            {"$match": match_query},
+            {
+                "$lookup": {
+                    "from": "compatibilities",           
+                    "localField": "compatibility_id",   
+                    "foreignField": "_id",       
+                    "as": "report_info"          
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$report_info",
+                    "preserveNullAndEmptyArrays": True  
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "user_id": 1,
+                    "profile_id": 1,
+                    "compatibility_id": 1,
+                    "is_comparison": 1,
+                    "pdf_report": 1,
+                    "report_text": 1,            
+                    "report_name": "$report_info.name"  
+                }
+            }
+        ]
+
+        user_compatibility_reports = await db.user_compatibility_reports.aggregate(pipeline).to_list(length=None)
+
+        if len(user_compatibility_reports) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Downloaded Reports Found For The User"
+            )
+
+        return user_compatibility_reports
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user reports: {str(e)}"
+        )
+
+
 async def fetch_user_reports(user_id, profile_id=None):
     try:
         query = {
