@@ -327,7 +327,6 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
-        await db.compatibility_report_chats.insert_one(chat_doc)
 
         return file_url
 
@@ -346,62 +345,56 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
     try:
         user_oid = ObjectId(user_id)
         report_oid = ObjectId(report_id)
+
         if not profile_id:
             profile_id = user_id
-        if compatibility_report:
-            report_collection = db.user_compatibility_reports
-            chat_collection = db.compatibility_report_chats
 
-            report_filter = {
-                "_id": report_oid,
-                "user_id": user_oid
-            }
+        profile_oid = ObjectId(profile_id)
 
-            chat_filter = {
-                "report_id": report_oid,
-                "user_id": user_oid
-            }
-        else:
-            profile_oid = ObjectId(profile_id)
-            report_collection = db.user_reports
-            chat_collection = db.report_chats
+        conversation = await db.conversations.find_one({
+            "report_id": report_oid,
+            "user_id": user_oid,
+            "profile_id": profile_oid,
+            "category": "report"
+        })
 
-            report_filter = {
-                "report_id": report_oid,
-                "user_id": user_oid,
-                "profile_id": profile_oid
-            }
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found"
+            )
 
-            chat_filter = {
-                "report_id": report_oid,
-                "user_id": user_oid,
-                "profile_id": profile_oid
-            }
+        conversation_id = conversation["_id"]
         
-        report = await report_collection.find_one(report_filter)
+        report = await db.user_reports.find_one({
+            "report_id": report_oid,
+            "user_id": user_oid,
+            "profile_id": profile_oid,
+        })
+
         if not report:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Report not found"
+                detail="Report Not Found"
             )
 
         report_text = report["report_text"]
-        chat = await chat_collection.find_one(chat_filter)
+        cursor = db.chat_history.find({
+            "conversation_id": conversation_id,
+            "user_id": user_oid,
+            "profile_id": profile_oid
+        }).sort("created_at", 1)
 
-        if not chat:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chat session not found"
-            )
-        previous_messages = chat.get("messages", [])
+        previous_messages = await cursor.to_list(length=None)
+
         messages = [
             {
                 "role": "system",
                 "content": (
                     "You are an astrology assistant. "
                     "Answer the user's questions using ONLY the following report:\n\n"
-                    f"{report_text}",
-                    f"Respond in {language} language"
+                    f"{report_text}\n\n"
+                    f"Respond in {language} language."
                 )
             }
         ]
@@ -410,7 +403,7 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
         for msg in previous_messages[-MAX_HISTORY:]:
             messages.append({
                 "role": msg["role"],
-                "content": msg["content"]
+                "content": msg["message"]
             })
 
         messages.append({
@@ -418,7 +411,6 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
             "content": payload.user_question
         })
 
-        # 4️⃣ Call Gemini
         response = await client.aio.models.generate_content(
             model="gemini-2.0-flash",
             contents=[m["content"] for m in messages],
@@ -429,30 +421,44 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
         )
 
         ai_reply = response.text
+
         await deduct_user_credits(user_id, 1, "1 Chat Consumed")
-        await chat_collection.update_one(
-            {"_id": chat["_id"]},
+
+        now = datetime.utcnow()
+
+        await db.chat_history.insert_many([
             {
-                "$push": {
-                    "messages": {
-                        "$each": [
-                            {"role": "user", "content": payload.user_question},
-                            {"role": "assistant", "content": ai_reply}
-                        ]
-                    }
-                },
-                "$set": {"updated_at": datetime.utcnow()}
+                "conversation_id": conversation_id,
+                "user_id": user_oid,
+                "profile_id": profile_oid,
+                "role": "user",
+                "message": payload.user_question,
+                "is_liked": False,
+                "is_disliked": False,
+                "created_at": now
+            },
+            {
+                "conversation_id": conversation_id,
+                "user_id": user_oid,
+                "profile_id": profile_oid,
+                "role": "assistant",
+                "message": ai_reply,
+                "is_liked": False,
+                "is_disliked": False,
+                "created_at": now
             }
-        )
+        ])
+
         return ai_reply
+
     except HTTPException as http_err:
         raise http_err
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching query answer from AI: {str(e)}"
-        )
-    
+        )    
 
 
 async def fetch_report_chat(user_id, report_id, profile_id, compatibility_report, language):
@@ -463,40 +469,16 @@ async def fetch_report_chat(user_id, report_id, profile_id, compatibility_report
         if compatibility_report:
             chat_collection = db.compatibility_report_chats
         else:
-            chat_collection = db.report_chats
+            chat_collection = db.conversations
             query["profile_id"] = ObjectId(profile_id)
         report_chat = await chat_collection.find_one(query)
         if not report_chat:
-            report = await generate_report_from_ai(report_id, user_id, profile_id, False, language)
-            await chat_collection.update_one(
-                query,
-                {
-                    "$push": {
-                        "messages": {
-                            "role": "assistant",
-                            "content": report,
-                        }
-                    },
-                    "$set": {
-                        "updated_at": datetime.utcnow()
-                    }
-                },
-                upsert=True
-            )
-            report_chat = await chat_collection.find_one(query)
-            if not report_chat:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Report Chat History Not Found"
-                )
-        report_chat["_id"] = str(report_chat["_id"])
-        report_chat["report_id"] = str(report_chat["report_id"])
-        report_chat["user_id"] = str(report_chat["user_id"])
-
-        if "profile_id" in report_chat:
-            report_chat["profile_id"] = str(report_chat["profile_id"])
-
-        return report_chat
+            report, conversation_id = await generate_report_from_ai(report_id, user_id, profile_id, False, language)
+        else:
+            conversation_id = report_chat["_id"]
+        cursor = db.chat_history.find({"conversation_id": ObjectId(conversation_id), "user_id": ObjectId(user_id)})
+        history = await cursor.to_list(length=None)
+        return convert_mongo(history)
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
