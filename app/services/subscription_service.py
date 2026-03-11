@@ -64,7 +64,7 @@ async def verify_storekit2_transaction(signed_transaction_info: str):
 
 async def add_user_credits(user_id: str, credits: int, reason: str, purchase_value: Optional[Dict[str, any]] = None):
     if credits <= 0:
-        raise ValueError("Credits must be positive")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Credits must be greater than 0")
     
 
     update_ops = {
@@ -96,7 +96,7 @@ async def add_user_credits(user_id: str, credits: int, reason: str, purchase_val
 
 async def deduct_user_credits(user_id: str, credits: int, reason: str, purchase_value: Optional[str] = None):
     if credits <= 0:
-        raise ValueError("Credits to deduct must be positive")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Credits must be greater than 0")
 
     result = await db.user_wallet.find_one_and_update(
         {
