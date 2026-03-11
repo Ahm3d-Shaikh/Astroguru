@@ -344,8 +344,9 @@ async def create_conversation(user_id, profile_id, category, first_user_message)
     result = await db.conversations.insert_one({
         "user_id": ObjectId(user_id),
         "profile_id": ObjectId(profile_id),
+        "report_id": None,
         "category": category,
-        "title": first_user_message[:50],
+        "title": first_user_message,
         "created_at": datetime.utcnow()
     })
 
@@ -492,13 +493,24 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
         "report_id": user_report["_id"],
         "user_id": ObjectId(user_id),
         "profile_id": ObjectId(profile_id),
-        "messages": [],
+        "title": f"{report_name} Chat",
+        "category": "report",
         "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
     }
-    await db.report_chats.insert_one(chat_doc)
+    inserted_conversation = await db.conversations.insert_one(chat_doc)
+    conversation_id = inserted_conversation.inserted_id
+    await db.chat_history.insert_one({
+        "conversation_id": ObjectId(conversation_id),
+        "user_id": ObjectId(user_id),
+        "profile_id": ObjectId(profile_id),
+        "role": "assistant",
+        "message": report_text,
+        "is_liked": False,
+        "is_disliked": False,
+        "created_at": datetime.utcnow()
+    })
     if not pdf_report or pdf_report is False:
-        return report_text
+        return report_text, conversation_id
 
     safe_text = markdown_to_plain(report_text)
 
@@ -607,15 +619,6 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
 
     file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"
     await save_user_report(user_id, profile_id, user_report["_id"], file_url, report_text)
-    chat_doc = {
-        "report_id": user_report["_id"],
-        "user_id": ObjectId(user_id),
-        "profile_id": ObjectId(profile_id),
-        "messages": [],
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
-    await db.report_chats.insert_one(chat_doc)
     return file_url
 
 

@@ -66,8 +66,8 @@ async def generate_report_from_ai(id, user_id, profile_id, pdf_report, language)
     else:
         profile_details = await fetch_profile_details(user_id, profile_id)
     astrology_data = await get_or_fetch_astrology_data(user_id, profile_id, profile_details)
-    generated_report = await generate_report_helper(profile_details, astrology_data, user_report, pdf_report, user_id, profile_id, language)
-    return generated_report
+    generated_report, conversation_id = await generate_report_helper(profile_details, astrology_data, user_report, pdf_report, user_id, profile_id, language)
+    return generated_report, conversation_id
 
 
 async def fetch_dashboard_predictions(user_id, profile_id, language):
