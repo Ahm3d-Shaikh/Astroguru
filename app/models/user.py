@@ -59,3 +59,8 @@ class UserUpdate(BaseModel):
     place_of_birth: Optional[str] = None
     lat: Optional[str] = None
     long: Optional[str] = None
+
+
+class OnboardingStatusPayload(BaseModel):
+    phone: str
+    country_code: str
