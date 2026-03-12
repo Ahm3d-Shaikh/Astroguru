@@ -404,3 +404,19 @@ async def fetch_users_summary():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching user summary from db: {str(e)}"
         )
+    
+
+async def fetch_user_onboarding_status(payload):
+    try:
+        user = await db.users.find_one({"phone": payload.phone, "country_code": payload.country_code, "is_enabled": True})
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No User Found")
+        
+        return user["is_onboarded"]
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching onboarding status: {str(e)}"
+        )
