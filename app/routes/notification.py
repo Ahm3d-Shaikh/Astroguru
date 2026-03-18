@@ -1,0 +1,77 @@
+from fastapi import APIRouter, Body, HTTPException, Depends, status
+from app.deps.auth_deps import get_current_user
+from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db
+from app.utils.admin import is_user_admin
+from app.models.notification import RegisterDevicePayload
+
+router = APIRouter()
+
+@router.get("/")
+async def get_notifications(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        notifications = await fetch_notifications(user_id)
+        return {"message": "Notifications Fetched Successfully", "result": notifications}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching notifications: {str(e)}"
+        )
+    
+
+@router.patch("/{id}")
+async def update_notification(id: str, current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await mark_notification_as_read(id, user_id)
+        return {"message": "Notification Updated Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while updating notifications: {str(e)}"
+        )
+
+@router.post("/test/global")
+async def test_global_notifications():
+
+    await mystery_notification()  
+
+    return {"message": "Global notifications created"}
+
+
+
+@router.get("/dashboard/")
+async def get_notifications_for_dashboard(current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        notifications = await fetch_notifications_for_admin()
+        return {"message": "Notifications Fetched Successfully", "result": notifications}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching notifications for admin: {str(e)}"
+        )
+    
+
+@router.post("/register-device/")
+async def register_user_device(payload: RegisterDevicePayload, current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await register_user_device_in_db(payload, user_id)
+        return {"message": "Device Registered Successfully"}
+    
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while registering user device: {str(e)}"
+        )
