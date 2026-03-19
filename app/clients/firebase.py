@@ -6,9 +6,10 @@ import os
 
 load_dotenv()
 
-# service_key = os.getenv("FIREBASE_KEY")
-# cred = credentials.Certificate(service_key)
-# firebase_admin.initialize_app(cred)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+firbase_path = os.path.join(BASE_DIR, "app", "config", "firebase_key.json")
+cred = credentials.Certificate(firbase_path)
+firebase_admin.initialize_app(cred)
 
 async def send_push_notification(device_token: str, title: str, body: str):
     loop = asyncio.get_event_loop()
