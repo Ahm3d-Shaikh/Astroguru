@@ -81,9 +81,18 @@ async def night_reflection_notification():
     )
 
 MYSTERY_MESSAGES = [
-    "Something is shifting in your 7th house tonight.",
-    "We see you overthinking again. Just send the text.",
-    "The universe is testing your patience today.",
+    "Something is shifting in your 7th house tonight 🌌✨.",
+    "We see you overthinking again 🤔💌. Just send the text 📲.",
+    "The universe is testing your patience today ⏳🌠.",
+    "Your Moon in Scorpio is feeling the intensity today 🌙🦂. Here is how to protect your energy 🛡️💖.",
+    "The universe has your back today 🌌💫. Repeat after us: I am open to new opportunities 🌱🌞.",
+    "The New Moon in Pisces is here 🌑♓—the perfect time to set intentions for the month ahead ✨📝.",
+    "Mercury is officially retrograde 🔄☿. Double-check those emails 📧 and leave early for your meetings 🏃‍♂️💨!",
+    "Venus enters Leo today ♀️🦁. Expect a spark in your social life ✨💃🕺.",
+    "The Moon is Void-of-Course until 4 PM 🌙🚫. Avoid making big decisions or signing contracts until then 📝❌.",
+    "We see you overthinking again 🤔✨. The stars say: just send the text 📲💌.",
+    "The stars missed you ✨💫. Since you've been gone, Saturn has moved 🪐—here's how it affects you now 🔮.",
+    "Something major is happening in your 7th House tonight 🌌🏠. Curious? 👀✨"
 ]
 
 async def mystery_notification():
