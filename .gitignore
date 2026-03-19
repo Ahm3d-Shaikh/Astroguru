@@ -16,3 +16,5 @@ __pycache__/
 # IDEs
 .vscode/
 .idea/
+
+app/config/firebase_key.json
