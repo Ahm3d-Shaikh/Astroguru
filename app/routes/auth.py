@@ -54,6 +54,7 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
             "timezone": tz_name,
             "utc_offset": utc_offset,
             "is_onboarded": True, 
+            "is_push_notifications_enabled": True,
             "created_at": datetime.utcnow(),     
         }
 

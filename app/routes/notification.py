@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, Depends, status
 from app.deps.auth_deps import get_current_user
-from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db
+from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read
 from app.utils.admin import is_user_admin
 from app.models.notification import RegisterDevicePayload
 
@@ -35,6 +35,19 @@ async def update_notification(id: str, current_user = Depends(get_current_user))
             detail=f"Error while updating notifications: {str(e)}"
         )
 
+@router.patch("/")
+async def update_all_notifications(current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await mark_all_notifications_as_read(user_id)
+        return {"message": "Notifications Updated Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while updating all notifications: {str(e)}"
+        )
 @router.post("/test/global")
 async def test_global_notifications():
 
