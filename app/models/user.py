@@ -59,6 +59,7 @@ class UserUpdate(BaseModel):
     place_of_birth: Optional[str] = None
     lat: Optional[str] = None
     long: Optional[str] = None
+    is_push_notifications_enabled: Optional[bool] = None
 
 
 class OnboardingStatusPayload(BaseModel):

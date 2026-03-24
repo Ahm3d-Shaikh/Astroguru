@@ -50,21 +50,47 @@ async def create_global_notification(title: str, message: str):
 scheduler = AsyncIOScheduler()
 
 async def push_pending_notifications():
-    pending = db.notifications.find({"status": "pending", "send_at": {"$lte": datetime.utcnow()}})
+    pending = db.notifications.find({
+        "status": "pending",
+        "send_at": {"$lte": datetime.utcnow()}
+    })
+
     async for notif in pending:
-        devices = db.user_devices.find({"user_id": notif["user_id"]})
+        user = await db.users.find_one({
+            "_id": notif["user_id"],
+            "is_push_notifications_enabled": True
+        })
+
+        if not user:
+            continue  
+
+        devices = db.user_devices.find({
+            "user_id": notif["user_id"]
+        })
+
+        success = False
+
         async for device in devices:
             try:
-                await send_push_notification(device["device_token"], notif["title"], notif["message"])
-                await db.notifications.update_one(
-                    {"_id": notif["_id"]},
-                    {"$set": {"status": "sent", "sent_at": datetime.utcnow()}}
+                await send_push_notification(
+                    device["device_token"],
+                    notif["title"],
+                    notif["message"]
                 )
+                success = True
             except Exception:
-                await db.notifications.update_one(
-                    {"_id": notif["_id"]},
-                    {"$set": {"status": "failed"}}
-                )
+                continue
+
+        if success:
+            await db.notifications.update_one(
+                {"_id": notif["_id"]},
+                {"$set": {"status": "sent", "sent_at": datetime.utcnow()}}
+            )
+        else:
+            await db.notifications.update_one(
+                {"_id": notif["_id"]},
+                {"$set": {"status": "failed"}}
+            )
 
 
 async def daily_morning_notification():
