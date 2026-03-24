@@ -179,6 +179,24 @@ async def mark_notification_as_read(id, user_id):
         )
     
 
+async def mark_all_notifications_as_read(user_id):
+    try:
+        await db.notifications.update_many(
+            {"user_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "is_read": True
+                }
+            }
+        )
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while marking all notifications as read: {str(e)}"
+        )
+
 async def fetch_notifications_for_admin():
     try:
         pipeline = [
