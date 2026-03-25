@@ -10,7 +10,8 @@ async def add_prediction_to_db(payload):
         await db.predictions.insert_one({
             "name": payload.name,
             "prompt": payload.prompt,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
         })
     except HTTPException as http_err:
         raise http_err
@@ -64,6 +65,7 @@ async def fetch_prediction_by_id(id):
 async def update_prediction_by_id(update_data, id):
     try:
         object_id = ObjectId(id)
+        update_data["updated_at"] = datetime.utcnow()
         result = await db.predictions.update_one({"_id": object_id}, {"$set": update_data})
         if result.matched_count == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prediction not found")
