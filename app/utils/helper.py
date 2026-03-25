@@ -355,8 +355,8 @@ async def create_conversation(user_id, profile_id, category, first_user_message)
 
 async def get_astrology_prediction(user_astrology_data: dict, user_question: str, user_id: str, profile_id: str, conversation_id=None, language=None):
     category = await get_category_from_question(user_question)
+    dob = user_astrology_data.get("date_of_birth")
     astrology_summary = "\n".join(f"{key}: {value}" for key, value in user_astrology_data.items())
-
     if not conversation_id:
         conversation_id = await create_conversation(user_id, profile_id, category, user_question)
 
@@ -365,11 +365,11 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     if not system_prompt_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Prompt Found Against This Category")
     
+    zodiac_sign = get_zodiac_sign(dob)
     system_prompt_text = system_prompt_doc["prompt"]
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     system_prompt = f"""
     {system_prompt_text}
-
     IMPORTANT RULES:
     - The astrological data below belongs to the **same user who is chatting with you**.
     - ALWAYS speak directly to the user.
@@ -396,7 +396,8 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     
     contents = [
         f"Chat History: \n{history_text}\n\n"
-        f"Here is my astrological data:\n{astrology_summary}\n\n"
+        f"Here is my astrological data:\n{astrology_summary}\n\n",
+        f"My Sun Sign: \n{zodiac_sign}\n\n",
         f"Please answer this question based on my data:\n{user_question}"
     ]
 
