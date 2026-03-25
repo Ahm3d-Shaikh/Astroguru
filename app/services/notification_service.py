@@ -50,6 +50,7 @@ async def create_global_notification(title: str, message: str):
 scheduler = AsyncIOScheduler()
 
 async def push_pending_notifications():
+    print("Running push_pending_notifications")
     pending = db.notifications.find({
         "status": "pending",
         "send_at": {"$lte": datetime.utcnow()}
@@ -94,6 +95,7 @@ async def push_pending_notifications():
 
 
 async def daily_morning_notification():
+    print("Running daily_morning_notifications")
     await create_global_notification(
         "Good morning 🌞",
         "Today's energy is shifting. Stay open to new opportunities."
@@ -101,6 +103,7 @@ async def daily_morning_notification():
 
 
 async def night_reflection_notification():
+    print("Running night_reflection_notifications")
     await create_global_notification(
         "Night reflection 🌙",
         "Take a moment to reflect. Tomorrow brings a new cosmic shift."
@@ -136,9 +139,10 @@ def start_scheduler():
         scheduler.add_job(
             push_pending_notifications,
             "interval",
-            minutes=1,
+            minutes=2,
             id="push_notifications",
-            replace_existing=True
+            replace_existing=True,
+            max_instances=3  
         )
 
         scheduler.add_job(
