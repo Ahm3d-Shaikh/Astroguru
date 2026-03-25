@@ -1,7 +1,7 @@
 from fastapi import HTTPException, APIRouter, status, Depends, Body, Query
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
-from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id, fetch_users_summary, fetch_user_onboarding_status
+from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id, fetch_users_summary, fetch_user_onboarding_status, block_user_from_db
 from app.utils.helper import fetch_chart_image
 import json
 from bson import json_util
@@ -170,4 +170,21 @@ async def get_onboarding_status(payload: OnboardingStatusPayload):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching onboarding status: {str(e)}"
+        )
+    
+
+@router.patch("/block/{id}")
+async def block_user(id: str, current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+        
+        await block_user_from_db(id)
+        return {"message": "User Blocked Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while blocking user: {str(e)}"
         )
