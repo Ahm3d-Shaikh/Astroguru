@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import astrology, auth, prompt, admin, report, prediction, user, profile, conversation, compatibility, subscription, notification
+from app.exception import validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 
 app = FastAPI()
 
@@ -11,6 +13,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 app.include_router(astrology.router, prefix="/astrology")
 app.include_router(auth.router, prefix="/auth")
