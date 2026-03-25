@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, Depends, status
 from app.deps.auth_deps import get_current_user
-from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read
+from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read, push_test_notification_to_device
 from app.utils.admin import is_user_admin
 from app.models.notification import RegisterDevicePayload
 
@@ -87,4 +87,18 @@ async def register_user_device(payload: RegisterDevicePayload, current_user = De
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while registering user device: {str(e)}"
+        )
+    
+
+@router.post("/push/test")
+async def push_test_notification(notification: str, current_user = Depends(get_current_user)):
+    try:
+        user_id = current_user["_id"]
+        await push_test_notification_to_device(notification, user_id)
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while pushing test notification: {str(e)}"
         )
