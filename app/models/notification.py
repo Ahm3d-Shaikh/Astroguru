@@ -20,3 +20,7 @@ class NotificationOut(NotificationCreate):
 class RegisterDevicePayload(BaseModel):
     device_token: str
     platform: str
+
+
+class TestNotification(BaseModel):
+    notification: str
