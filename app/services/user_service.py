@@ -75,6 +75,9 @@ async def fetch_logged_in_user_details(user_id):
         
         user["_id"] = str(user["_id"])
         user["zodiac_sign"] = get_zodiac_sign(user.get("date_of_birth"))
+        cursor = db.user_devices.find({"user_id": ObjectId(user_id)})
+        devices = await cursor.to_list(length=None)
+        user["user_devices"] = convert_mongo(devices)
         return user
     except HTTPException as http_err:
         raise http_err

@@ -168,11 +168,10 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
             "user_id": ObjectId(user_id),
             "compatibility_id": ObjectId(compatibility_doc["_id"]),
             "pdf_report": {"$ne": None},
-            "profile_id": {"$all": profile_ids} 
+            "profile_id": {"$all": profile_ids, "$size": len(profile_ids)} 
 
         })
         existing_docs = await cursor.to_list(length=None)
-
         if existing_docs:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{report_type} Report For These Profiles Already Exists")
         
