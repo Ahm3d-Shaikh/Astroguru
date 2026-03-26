@@ -50,19 +50,20 @@ async def create_global_notification(title: str, message: str):
 scheduler = AsyncIOScheduler()
 
 
-async def push_test_notification_to_device(notification, user_id):
-    devices = await db.user_devices.find({
+async def push_test_notification_to_device(payload, user_id):
+    cursor = db.user_devices.find({
         "user_id": ObjectId(user_id)
     })
-    async for device in devices:
+    devices = await cursor.to_list(length=None)
+    for device in devices:
         try:
-            await send_push_notification(
+            result = await send_push_notification(
                 device["device_token"],
                 "Test",
-                notification
+                payload.notification
             )
         except Exception:
-            continue
+            raise Exception
 
 async def push_pending_notifications():
     print("Running push_pending_notifications")
