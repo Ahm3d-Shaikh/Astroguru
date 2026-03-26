@@ -60,19 +60,7 @@ async def get_user_by_email(email: str):
 
 async def get_user_by_phone(phone: str, country_code: str):
     try:
-        user = await db.users.find_one({"phone": phone, "country_code": country_code})
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
-        if not user.get("is_enabled", True):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Account Disabled. Please Contact Admin"
-            )
-        return user
+        return await db.users.find_one({"phone": phone, "country_code": country_code})
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

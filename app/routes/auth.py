@@ -83,7 +83,14 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
 async def request_otp(payload: OtpRequest):
     try:
         user = await get_user_by_phone(payload.phone, payload.country_code)
-        if not user:
+        if user:
+            if not user.get("is_enabled", True):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account Disabled. Please contact admin."
+                )
+            user_id = user["_id"]
+        else:
             res = await db.users.insert_one({
                 "phone": payload.phone,
                 "country_code": payload.country_code,
@@ -93,9 +100,7 @@ async def request_otp(payload: OtpRequest):
                 "role": payload.role
             })
             user_id = res.inserted_id
-        else:
-            user_id = user["_id"]
-        
+
         # otp = generate_otp()
         otp = "123456"
         # await send_otp_sms(payload.phone, otp)
