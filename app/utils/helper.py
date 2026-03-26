@@ -396,6 +396,7 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         - ALWAYS mention the chart and house when referencing planets (You need to look in "horoscope_charts" in astrology_summary to look for these charts).
         - ALWAYS use all the 'horoscopic_charts' as context when replying.
         - Today's date is {today}. Use it for time-based calculations.
+        - User's Sun Sign is {zodiac_sign}. Strictly use it as sun sign for the user.
         - ALWAYS provide astrological references in readable text format.
           Example: "Based on D1 chart, Sun is in Sagittarius in house 1"
 
@@ -418,7 +419,6 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
     contents = [
         f"Chat History: \n{history_text}\n\n"
         f"Here is my astrological data:\n{astrology_summary}\n\n",
-        f"My Sun Sign: \n{zodiac_sign}\n\n",
         f"Please answer this question based on my data:\n{user_question}"
     ]
 
