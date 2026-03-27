@@ -7,6 +7,7 @@ from app.services.conversation_service import fetch_conversations
 from app.services.report_service import fetch_user_reports, fetch_user_reports_for_admin, fetch_user_compatibility_reports_for_admin
 from app.services.astrology_service import fetch_user_profile_summary
 from app.services.subscription_service import fetch_user_coins
+from app.utils.helper import convert_to_local_timezone
 from app.utils.mongo import convert_mongo
 from app.clients.gemini_client import client
 from google.genai import types
@@ -137,6 +138,9 @@ async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, se
             user_compatibility_reports = []
         else:
             user_compatibility_reports = convert_mongo(user_compatibility_reports_raw)
+
+        timezone = profile_details.get("timezone", "Asia/Kolkata")
+        conversations = convert_to_local_timezone(conversations, timezone)
         return {
             "charts": astrology_data.get("horoscope_charts"),
             "planet_positions": planet_positions,
