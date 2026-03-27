@@ -237,7 +237,7 @@ async def fetch_user_compatibility_reports_for_admin(user_id, profile_id=None):
                     "is_comparison": 1,
                     "pdf_report": 1,
                     "report_text": 1,            
-                    "report_name": "$report_info.name"  
+                    "report_name": "$report_info.type"  
                 }
             }
         ]

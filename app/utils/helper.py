@@ -16,6 +16,7 @@ import io
 import re
 from app.clients.aws import s3_client, S3_BUCKET
 from app.services.subscription_service import deduct_user_credits
+import pytz
 
 ASTRO_API_USER_ID = os.getenv("ASTROLOGY_API_USER_ID")
 ASTRO_API_KEY = os.getenv("ASTROLOGY_API_KEY")
@@ -1170,4 +1171,20 @@ def calculate_d11_chart(astrology_data):
         "houses": d11_houses
     }
 
-
+def convert_to_local_timezone(data, user_timezone: str = "Asia/Kolkata"):
+    tz = pytz.timezone(user_timezone)
+    
+    if isinstance(data, dict):
+        new_data = {}
+        for key, value in data.items():
+            if isinstance(value, datetime):
+                new_data[key] = value.astimezone(tz).strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                new_data[key] = convert_to_local_timezone(value, user_timezone)
+        return new_data
+    
+    elif isinstance(data, list):
+        return [convert_to_local_timezone(item, user_timezone) for item in data]
+    
+    else:
+        return data
