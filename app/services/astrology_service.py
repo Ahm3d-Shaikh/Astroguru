@@ -81,9 +81,12 @@ async def fetch_dashboard_predictions(user_id, profile_id, language):
     return text_output, prediction_dict
 
 
-async def fetch_dynamic_questions(user_id, language):
+async def fetch_dynamic_questions(user_id, profile_id, language):
     try:
-        last_conversation = await db.conversations.find_one({"user_id": ObjectId(user_id)}, sort=[("created_at", -1)])
+        query = {"user_id": ObjectId(user_id)}
+        if profile_id:
+            query["profile_id"] = ObjectId(profile_id)
+        last_conversation = await db.conversations.find_one(query, sort=[("created_at", -1)])
 
         if not last_conversation:
             return [
