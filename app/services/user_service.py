@@ -13,6 +13,7 @@ from app.clients.gemini_client import client
 from google.genai import types
 import asyncio
 import re
+import pytz
 
 
 
@@ -89,6 +90,27 @@ async def fetch_logged_in_user_details(user_id):
             detail=f"Error while fetching logged in user details: {str(e)}"
         )
     
+def parse_mongo_datetime(data):
+    """
+    Recursively parse ISO datetime strings to datetime objects.
+    """
+    if isinstance(data, dict):
+        return {k: parse_mongo_datetime(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [parse_mongo_datetime(i) for i in data]
+    else:
+        # try parsing datetime
+        if isinstance(data, str):
+            try:
+                dt = datetime.fromisoformat(data)
+                # assume UTC if naive
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                return dt
+            except ValueError:
+                return data
+        else:
+            return data
 
 async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, search_term: str | None = None):
     try:
@@ -140,6 +162,7 @@ async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, se
             user_compatibility_reports = convert_mongo(user_compatibility_reports_raw)
 
         timezone = profile_details.get("timezone", "Asia/Kolkata")
+        conversations = parse_mongo_datetime(conversations)
         conversations = convert_to_local_timezone(conversations, timezone)
         return {
             "charts": astrology_data.get("horoscope_charts"),
