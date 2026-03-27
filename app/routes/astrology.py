@@ -119,10 +119,10 @@ async def get_dashboard_prediction(profile_id: str = Query(None), language: str 
     
 
 @router.post("/questions")
-async def get_dynamic_questions(language: str = Query(None), current_user = Depends(get_current_user)):
+async def get_dynamic_questions(language: str = Query("English"), profile_id: str = Query(None), current_user = Depends(get_current_user)):
     try:
         user_id = current_user["_id"]
-        questions = await fetch_dynamic_questions(user_id, language)
+        questions = await fetch_dynamic_questions(user_id, profile_id, language)
         return {"message": "Questions Fetched Successfully", "result": questions}
     except HTTPException as http_err:
         raise http_err
