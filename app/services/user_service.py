@@ -6,6 +6,7 @@ from app.utils.helper import get_or_fetch_astrology_data, fetch_user_details, ge
 from app.services.conversation_service import fetch_conversations
 from app.services.report_service import fetch_user_reports, fetch_user_reports_for_admin, fetch_user_compatibility_reports_for_admin
 from app.services.astrology_service import fetch_user_profile_summary
+from app.services.subscription_service import fetch_user_coins
 from app.utils.mongo import convert_mongo
 from app.clients.gemini_client import client
 from google.genai import types
@@ -153,6 +154,46 @@ async def fetch_dashboard_details_for_user(id, profile_id: str | None = None, se
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching dashboard details from db: {str(e)}"
+        )
+
+async def fetch_user_stats(id):
+    try:
+        simple_reports = await db.user_reports.count_documents({
+            "user_id": ObjectId(id),
+            "$or": [
+                {"file_url": {"$ne": None}},
+                {"report_text": {"$ne": None}}
+            ]
+        })
+        compatibility_reports = await db.user_compatibility_reports.count_documents({"user_id": ObjectId(id)})
+        coins = await fetch_user_coins(id)
+        total_revenue_pipeline = [
+            {
+                "$match": {
+                    "user_id": ObjectId(id)  
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total_revenue": {"$sum": "$total_spent"}
+                }
+            }
+        ]
+
+        result = await db.user_wallet.aggregate(total_revenue_pipeline).to_list(length=1)
+        total_revenue = result[0]["total_revenue"] if result else 0
+        return {
+            "total_spent": round(total_revenue),
+            "coins": coins,
+            "reports_generated": simple_reports + compatibility_reports
+        }
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching user stats from db: {str(e)}"
         )
 
 async def delete_user_by_id(id):
