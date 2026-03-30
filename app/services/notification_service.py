@@ -1,10 +1,11 @@
 from app.db.mongo import db
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from app.utils.mongo import convert_mongo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.clients.firebase import send_push_notification
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import random
 
 
@@ -24,6 +25,43 @@ async def create_notification(user_id: str, title: str, message: str, type: str 
     notif["_id"] = result.inserted_id
     return notif
 
+
+async def create_notification_for_users_at_local_hour(title: str, message: str, target_hour: int):
+    now_utc = datetime.now(timezone.utc)
+ 
+    users = db.users.find(
+        {"role": "user", "is_enabled": True, "is_onboarded": True},
+        {"_id": 1, "timezone": 1}
+    )
+ 
+    notifications = []
+    async for user in users:
+        tz_str = user.get("timezone", "Asia/Kolkata")
+        if not tz_str:
+            continue
+ 
+        try:
+            user_tz = ZoneInfo(tz_str)
+        except ZoneInfoNotFoundError:
+            continue
+ 
+        local_hour = now_utc.astimezone(user_tz).hour
+        if local_hour != target_hour:
+            continue
+ 
+        notifications.append({
+            "user_id": user["_id"],
+            "title": title,
+            "message": message,
+            "type": "general",
+            "status": "pending",
+            "send_at": now_utc,
+            "is_read": False,
+            "created_at": now_utc
+        })
+ 
+    if notifications:
+        await db.notifications.insert_many(notifications)
 
 async def create_global_notification(title: str, message: str):
 
@@ -69,7 +107,7 @@ async def push_pending_notifications():
     print("Running push_pending_notifications")
     pending = db.notifications.find({
         "status": "pending",
-        "send_at": {"$lte": datetime.utcnow()}
+        "send_at": {"$lte": datetime.now(timezone.utc)}
     })
 
     async for notif in pending:
@@ -101,7 +139,7 @@ async def push_pending_notifications():
         if success:
             await db.notifications.update_one(
                 {"_id": notif["_id"]},
-                {"$set": {"status": "sent", "sent_at": datetime.utcnow()}}
+                {"$set": {"status": "sent", "sent_at": datetime.now(timezone.utc)}}
             )
         else:
             await db.notifications.update_one(
@@ -112,6 +150,12 @@ async def push_pending_notifications():
 
 async def daily_morning_notification():
     print("Running daily_morning_notifications")
+    await create_notification_for_users_at_local_hour(
+        "Good morning 🌞",
+        "Today's energy is shifting. Stay open to new opportunities.",
+        target_hour=8
+
+    )
     await create_global_notification(
         "Good morning 🌞",
         "Today's energy is shifting. Stay open to new opportunities."
@@ -120,9 +164,10 @@ async def daily_morning_notification():
 
 async def night_reflection_notification():
     print("Running night_reflection_notifications")
-    await create_global_notification(
+    await create_notification_for_users_at_local_hour(
         "Night reflection 🌙",
-        "Take a moment to reflect. Tomorrow brings a new cosmic shift."
+        "Take a moment to reflect. Tomorrow brings a new cosmic shift.",
+        target_hour=22
     )
 
 MYSTERY_MESSAGES = [
@@ -143,9 +188,10 @@ MYSTERY_MESSAGES = [
 async def mystery_notification():
     message = random.choice(MYSTERY_MESSAGES)
 
-    await create_global_notification(
+    await create_notification_for_users_at_local_hour(
         "A message for you ✨",
-        message
+        message,
+        target_hour=15
     )
 
 def start_scheduler():
@@ -164,7 +210,6 @@ def start_scheduler():
         scheduler.add_job(
             daily_morning_notification,
             "cron",
-            hour=8,
             minute=0,
             id="daily_morning",
             replace_existing=True
@@ -173,7 +218,6 @@ def start_scheduler():
         scheduler.add_job(
             night_reflection_notification,
             "cron",
-            hour=22,
             minute=0,
             id="night_reflection",
             replace_existing=True
@@ -182,7 +226,6 @@ def start_scheduler():
         scheduler.add_job(
             mystery_notification,
             "cron",
-            hour=15,
             minute=0,
             id="mystery",
             replace_existing=True
