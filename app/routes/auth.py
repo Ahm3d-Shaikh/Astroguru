@@ -105,8 +105,8 @@ async def request_otp(payload: OtpRequest):
         await db.otp_table.update_one(
             {"user_id": user_id},
             {"$set": {
-                "last_request": datetime.utcnow(),
-                "verification_sid": verification_sid
+                "created_at": datetime.utcnow(),
+                "verification_sid": verification_sid,
             }},
             upsert=True
         )
