@@ -3,7 +3,7 @@ from app.models.user import UserCreate
 from app.models.login import LoginRequest
 from app.deps.auth_deps import get_current_user
 from app.models.otp import OtpRequest
-from app.utils.twilio import send_otp_sms
+from app.utils.twilio import send_otp_sms, verify_otp
 from app.services.auth_service import create_access_token, generate_otp, get_user_by_phone
 from app.utils.helper import get_zodiac_sign
 from app.services.subscription_service import fetch_user_coins, add_user_credits
@@ -101,15 +101,12 @@ async def request_otp(payload: OtpRequest):
             })
             user_id = res.inserted_id
 
-        # otp = generate_otp()
-        otp = "123456"
-        # await send_otp_sms(payload.phone, otp)
-        
+        verification_sid = await send_otp_sms(payload.country_code, payload.phone)        
         await db.otp_table.update_one(
             {"user_id": user_id},
             {"$set": {
-                "otp": otp,
-                "created_at": datetime.utcnow(),
+                "last_request": datetime.utcnow(),
+                "verification_sid": verification_sid
             }},
             upsert=True
         )
@@ -133,13 +130,13 @@ async def login(payload: LoginRequest):
         
         if not user["is_enabled"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account Disabled")
-        otp = await db.otp_table.find_one({"user_id": user["_id"], "otp": payload.otp})
-        if not otp:
+        otp = await db.otp_table.find_one({"user_id": user["_id"]})
+        if not otp or "verification_sid" not in otp:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
-        
-        created_at = otp["created_at"]
-        if not created_at or datetime.utcnow() > created_at + timedelta(minutes=10):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP Expired")
+               
+        verification_check = await verify_otp(payload.country_code, payload.phone, payload.otp)
+        if verification_check.status != "approved":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
         
         await db.otp_table.delete_one({"user_id": user["_id"]})
         token = create_access_token(subject=str(user["_id"]))
