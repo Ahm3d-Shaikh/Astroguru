@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, Depends, status
 from app.deps.auth_deps import get_current_user
-from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read, push_test_notification_to_device
+from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read, push_test_notification_to_device, fetch_dashboard_notifications
 from app.utils.admin import is_user_admin
 from app.models.notification import RegisterDevicePayload, TestNotification
 
@@ -19,7 +19,22 @@ async def get_notifications(current_user = Depends(get_current_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching notifications: {str(e)}"
         )
-    
+
+@router.get("/dashboard")
+async def get_dashboard_notifications(current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+
+        notifications = await fetch_dashboard_notifications()
+        return {"message": "Notifications Fetched Successfully", "result": notifications}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching dashboard notifications: {str(e)}"
+        )    
 
 @router.patch("/{id}")
 async def update_notification(id: str, current_user = Depends(get_current_user)):

@@ -372,3 +372,52 @@ async def register_user_device_in_db(payload, user_id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while registering device in db: {str(e)}"
         )
+    
+
+async def fetch_dashboard_notifications():
+    try:
+        pipeline = [
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "user_id",
+                    "foreignField": "_id",
+                    "as": "user"
+                }
+            },
+            {
+                "$unwind": {
+                    "path": "$user",
+                    "preserveNullAndEmptyArrays": True
+                }
+            },
+            {
+                "$addFields": {
+                    "user_name": "$user.name"
+                }
+            },
+            {
+                "$project": {
+                    "user": 0  
+                }
+            }
+        ]
+
+        cursor = db.notifications.aggregate(pipeline)
+        notifications = await cursor.to_list(length=None)
+
+        if not notifications:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notifications Not Found"
+            )
+
+        return convert_mongo(notifications)
+
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while fetching dashboard notifications from db: {str(e)}"
+        )
