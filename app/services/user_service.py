@@ -513,3 +513,26 @@ async def block_user_from_db(id):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while blocking user from db: {str(e)}"
         )
+    
+
+async def unblock_user_from_db(id):
+    try:
+        result = await db.users.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"is_enabled": True}}
+        )
+
+        if result.matched_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while unblocking user from db: {str(e)}"
+        )
+    
