@@ -26,7 +26,7 @@ async def create_notification(user_id: str, title: str, message: str, type: str 
     return notif
 
 
-async def create_notification_for_users_at_local_hour(title: str, message: str, target_hour: int):
+async def create_notification_for_users_at_local_hour(title: str, message: str, target_hour: int, type: str):
     now_utc = datetime.now(timezone.utc)
  
     users = db.users.find(
@@ -45,15 +45,28 @@ async def create_notification_for_users_at_local_hour(title: str, message: str, 
         except ZoneInfoNotFoundError:
             continue
  
-        local_hour = now_utc.astimezone(user_tz).hour
-        if local_hour != target_hour:
+        local_time = now_utc.astimezone(user_tz)
+
+        if local_time.hour != target_hour or local_time.minute >= 10:
+            continue
+
+        start_of_day_local = local_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_of_day_utc = start_of_day_local.astimezone(timezone.utc)
+        
+        already_sent = await db.notifications.find_one({
+            "user_id": user["_id"],
+            "type": type,  
+            "created_at": {"$gte": start_of_day_utc}
+        })
+
+        if already_sent:
             continue
  
         notifications.append({
             "user_id": user["_id"],
             "title": title,
             "message": message,
-            "type": "general",
+            "type": type,
             "status": "pending",
             "send_at": now_utc,
             "is_read": False,
@@ -63,34 +76,12 @@ async def create_notification_for_users_at_local_hour(title: str, message: str, 
     if notifications:
         await db.notifications.insert_many(notifications)
 
-async def create_global_notification(title: str, message: str):
-
-    users = db.users.find({"role": "user", "is_enabled": True, "is_onboarded": True}, {"_id": 1})
-
-    notifications = []
-
-    async for user in users:
-        notifications.append({
-            "user_id": user["_id"],
-            "title": title,
-            "message": message,
-            "type": "general",
-            "status": "pending",
-            "send_at": datetime.utcnow(),
-            "is_read": False,
-            "created_at": datetime.utcnow()
-        })
-
-    if notifications:
-        await db.notifications.insert_many(notifications)
-
-
 scheduler = AsyncIOScheduler()
-
 
 async def push_test_notification_to_device(payload, user_id):
     cursor = db.user_devices.find({
-        "user_id": ObjectId(user_id)
+        "user_id": ObjectId(user_id),
+        "is_active": True
     })
     devices = await cursor.to_list(length=None)
     for device in devices:
@@ -120,7 +111,8 @@ async def push_pending_notifications():
             continue  
 
         devices = db.user_devices.find({
-            "user_id": notif["user_id"]
+            "user_id": notif["user_id"],
+            "is_active": True
         })
 
         success = False
@@ -148,26 +140,30 @@ async def push_pending_notifications():
             )
 
 
-async def daily_morning_notification():
-    print("Running daily_morning_notifications")
+async def notification_cycle():
+    print("Running notification cycle")
+
     await create_notification_for_users_at_local_hour(
         "Good morning 🌞",
-        "Today's energy is shifting. Stay open to new opportunities.",
-        target_hour=8
-
-    )
-    await create_global_notification(
-        "Good morning 🌞",
-        "Today's energy is shifting. Stay open to new opportunities."
+        "Today's energy is shifting...",
+        8,
+        "morning"
     )
 
-
-async def night_reflection_notification():
-    print("Running night_reflection_notifications")
     await create_notification_for_users_at_local_hour(
         "Night reflection 🌙",
-        "Take a moment to reflect. Tomorrow brings a new cosmic shift.",
-        target_hour=22
+        "Take a moment to reflect...",
+        22,
+        "night"
+    )
+
+    message = random.choice(MYSTERY_MESSAGES)
+
+    await create_notification_for_users_at_local_hour(
+        "A message for you ✨",
+        message,
+        15,
+        "mystery"
     )
 
 MYSTERY_MESSAGES = [
@@ -185,52 +181,26 @@ MYSTERY_MESSAGES = [
     "Something major is happening in your 7th House tonight 🌌🏠. Curious? 👀✨"
 ]
 
-async def mystery_notification():
-    message = random.choice(MYSTERY_MESSAGES)
-
-    await create_notification_for_users_at_local_hour(
-        "A message for you ✨",
-        message,
-        target_hour=15
-    )
-
 def start_scheduler():
 
     if not scheduler.running:
 
         scheduler.add_job(
+            notification_cycle,
+            "interval",
+            minutes=5, 
+            id="notification_cycle",
+            replace_existing=True
+        )
+
+        scheduler.add_job(
             push_pending_notifications,
             "interval",
-            hours=5,
+            minutes=1,
             id="push_notifications",
             replace_existing=True,
             max_instances=3  
         )
-
-        scheduler.add_job(
-            daily_morning_notification,
-            "cron",
-            minute=0,
-            id="daily_morning",
-            replace_existing=True
-        )
-
-        scheduler.add_job(
-            night_reflection_notification,
-            "cron",
-            minute=0,
-            id="night_reflection",
-            replace_existing=True
-        )
-
-        scheduler.add_job(
-            mystery_notification,
-            "cron",
-            minute=0,
-            id="mystery",
-            replace_existing=True
-        )
-
         scheduler.start()
 
 async def fetch_notifications(user_id):
