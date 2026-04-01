@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, Depends, status
 from app.deps.auth_deps import get_current_user
-from app.services.notification_service import fetch_notifications, daily_morning_notification, mark_notification_as_read, night_reflection_notification, mystery_notification, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read, push_test_notification_to_device, fetch_dashboard_notifications, mark_all_notifications_as_read_on_dashboard
+from app.services.notification_service import fetch_notifications, mark_notification_as_read, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read, push_test_notification_to_device, fetch_dashboard_notifications, mark_all_notifications_as_read_on_dashboard
 from app.utils.admin import is_user_admin
 from app.models.notification import RegisterDevicePayload, TestNotification
 
@@ -80,14 +80,6 @@ async def update_all_notifications_on_dashboard(current_user = Depends(get_curre
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while updating all notifications: {str(e)}"
         )
-
-@router.post("/test/global")
-async def test_global_notifications():
-
-    await mystery_notification()  
-
-    return {"message": "Global notifications created"}
-
 
 
 @router.get("/dashboard/")
