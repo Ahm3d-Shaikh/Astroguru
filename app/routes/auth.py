@@ -121,6 +121,32 @@ async def request_otp(payload: OtpRequest):
         )
     
 
+@router.post("/verify-otp")
+async def verify_otp_controller(payload: LoginRequest):
+    try:
+        user = await get_user_by_phone(payload.phone, payload.country_code)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found. Please Request OTP Again")
+        
+        if not user["is_enabled"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account Disabled")
+        otp = await db.otp_table.find_one({"user_id": user["_id"]})
+        if not otp or "verification_sid" not in otp:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+               
+        verification_check = await verify_otp(payload.country_code, payload.phone, payload.otp)
+        if verification_check.status != "approved":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+        
+        return {"message": "OTP Verified Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+
 @router.post("/login")
 async def login(payload: LoginRequest):
     try:
