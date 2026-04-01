@@ -35,6 +35,29 @@ async def fetch_users(type_filter: str = None):
             }
         })
 
+        pipeline.append({
+            "$lookup": {
+                "from": "user_subscriptions",
+                "localField": "_id",
+                "foreignField": "user_id",
+                "as": "subscriptions"
+            }
+        })
+
+        pipeline.append({
+            "$addFields": {
+                "is_subscribed": {
+                    "$gt": [{"$size": "$subscriptions"}, 0]
+                }
+            }
+        })
+
+        pipeline.append({
+            "$project": {
+                "subscriptions": 0
+            }
+        })
+
         users = await db.users.aggregate(pipeline).to_list(length=None)
 
         if not users:
