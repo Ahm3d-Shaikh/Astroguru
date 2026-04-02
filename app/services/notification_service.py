@@ -7,6 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.clients.firebase import send_push_notification
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import random
+import asyncio
 
 
 async def create_notification(user_id: str, title: str, message: str, type: str = "general"):
@@ -409,4 +410,71 @@ async def fetch_dashboard_notifications():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching dashboard notifications from db: {str(e)}"
+        )
+    
+async def push_notifications_to_users_helper(payload, is_subscribed: bool):
+    try:
+        base_match = {
+            "role": "user",
+            "is_enabled": True,
+            "is_push_notifications_enabled": True
+        }
+
+        pipeline = [
+            {"$match": base_match}
+        ]
+
+        # ✅ Apply subscription filter using $lookup
+        if is_subscribed:
+            pipeline.extend([
+                {
+                    "$lookup": {
+                        "from": "user_subscriptions",
+                        "localField": "_id",
+                        "foreignField": "user_id",
+                        "as": "subscription"
+                    }
+                },
+                {
+                    "$match": {
+                        "subscription.0": {"$exists": True}
+                    }
+                }
+            ])
+
+        cursor = db.users.aggregate(pipeline)
+
+        async for user in cursor:
+            devices_cursor = db.user_devices.find({
+                "user_id": user["_id"],
+                "is_active": True
+            })
+
+            tokens = [
+                device["device_token"]
+                async for device in devices_cursor
+                if device.get("device_token")
+            ]
+
+            if not tokens:
+                continue
+
+            # 🚀 Send in parallel per user
+            tasks = [
+                send_push_notification(token, payload.title, payload.message)
+                for token in tokens
+            ]
+
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for res in results:
+                if isinstance(res, Exception):
+                    print(f"Push failed: {res}")
+
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while pushing notifications: {str(e)}"
         )
