@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from bson import ObjectId
+from datetime import datetime
 
 class NotificationCreate(BaseModel):
     user_id: str
@@ -24,3 +25,8 @@ class RegisterDevicePayload(BaseModel):
 
 class TestNotification(BaseModel):
     notification: str
+
+
+class AdminNotificationRequest(BaseModel):
+    title: str
+    message: str

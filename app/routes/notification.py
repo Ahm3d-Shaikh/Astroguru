@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Body, HTTPException, Depends, status
+from fastapi import APIRouter, Body, HTTPException, Depends, status, Query
 from app.deps.auth_deps import get_current_user
-from app.services.notification_service import fetch_notifications, mark_notification_as_read, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read, push_test_notification_to_device, fetch_dashboard_notifications, mark_all_notifications_as_read_on_dashboard
+from app.services.notification_service import fetch_notifications, mark_notification_as_read, fetch_notifications_for_admin, register_user_device_in_db, mark_all_notifications_as_read, push_test_notification_to_device, fetch_dashboard_notifications, mark_all_notifications_as_read_on_dashboard, push_notifications_to_users_helper
 from app.utils.admin import is_user_admin
-from app.models.notification import RegisterDevicePayload, TestNotification
+from app.models.notification import RegisterDevicePayload, TestNotification, AdminNotificationRequest
 
 router = APIRouter()
 
@@ -97,7 +97,22 @@ async def get_notifications_for_dashboard(current_user = Depends(get_current_use
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while fetching notifications for admin: {str(e)}"
         )
-    
+
+@router.post("/push-notification")
+async def push_notification_to_users(payload: AdminNotificationRequest, is_subscribed: bool = Query(None), current_user = Depends(get_current_user)):
+    try:
+        if not is_user_admin(current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
+
+        await push_notifications_to_users_helper(payload, is_subscribed)
+        return {"message": "Notification Pushed Successfully"}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while pushing notifications to users: {str(e)}"
+        )    
 
 @router.post("/register-device/")
 async def register_user_device(payload: RegisterDevicePayload, current_user = Depends(get_current_user)):
