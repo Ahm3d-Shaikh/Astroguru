@@ -61,6 +61,9 @@ async def generate_report_from_ai(id, user_id, profile_id, pdf_report, language)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     
     # If profile_id == user_id → use users table
+    if profile_id is None:
+        profile_id = user_id
+        
     if profile_id == user_id:
         profile_details = await fetch_user_details(user_id)
     else:
