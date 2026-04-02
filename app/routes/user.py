@@ -1,11 +1,11 @@
 from fastapi import HTTPException, APIRouter, status, Depends, Body, Query
 from app.deps.auth_deps import get_current_user
 from app.utils.admin import is_user_admin
-from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id, fetch_users_summary, fetch_user_onboarding_status, block_user_from_db, fetch_user_stats, unblock_user_from_db
+from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id, fetch_users_summary, fetch_user_onboarding_status, block_user_from_db, fetch_user_stats, unblock_user_from_db, duplicate_phone_helper
 from app.utils.helper import fetch_chart_image
 import json
 from bson import json_util
-from app.models.user import UserUpdate, OnboardingStatusPayload
+from app.models.user import UserUpdate, OnboardingStatusPayload, PhoneRequest
 
 
 router = APIRouter()
@@ -145,6 +145,19 @@ async def edit_logged_in_user(payload: UserUpdate, current_user = Depends(get_cu
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error while editing user details: {str(e)}"
+        )
+    
+@router.post("/phone/duplicate")
+async def is_phone_duplicate(payload: PhoneRequest, current_user = Depends(get_current_user)):
+    try:
+        is_duplicate = await duplicate_phone_helper(payload)
+        return {"message": "Phone Checked Successfully", "result": is_duplicate}
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while checking phone number: {str(e)}"
         )
 
 @router.delete("/{id}")

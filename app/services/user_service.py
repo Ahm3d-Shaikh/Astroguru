@@ -559,3 +559,17 @@ async def unblock_user_from_db(id):
             detail=f"Error while unblocking user from db: {str(e)}"
         )
     
+
+async def duplicate_phone_helper(payload):
+    try:
+        user = await db.users.find_one({"country_code": payload.country_code, "phone": payload.phone})
+        if user:
+            return True
+        return False
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while checking duplicate phone in db: {str(e)}"
+        )
