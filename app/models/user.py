@@ -49,6 +49,11 @@ class Admin(BaseModel):
     password: str
 
 
+class PhoneRequest(BaseModel):
+    country_code: str
+    phone: str
+
+
 class UserUpdate(BaseModel):
     country_code: Optional[str] = None
     phone: Optional[str] = None
