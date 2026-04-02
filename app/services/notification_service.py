@@ -145,14 +145,14 @@ async def notification_cycle():
 
     await create_notification_for_users_at_local_hour(
         "Good morning 🌞",
-        "Today's energy is shifting...",
+        "Today's energy is shifting. Stay open to new opportunities.",
         8,
         "morning"
     )
 
     await create_notification_for_users_at_local_hour(
         "Night reflection 🌙",
-        "Take a moment to reflect...",
+        "Take a moment to reflect. Tomorrow brings a new cosmic shift.",
         22,
         "night"
     )
