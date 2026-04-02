@@ -647,12 +647,8 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
 
 async def fetch_user_report(id, user_id, profile_id):
     try:
-        print("ids: ", user_id, profile_id)
-        query = {"user_id": ObjectId(user_id), "report_id": ObjectId(id)}
-        if profile_id:
-            query["profile_id"] = ObjectId(profile_id)
         user_report = await db.user_reports.find_one(
-            query
+            {"user_id": ObjectId(user_id), "profile_id": ObjectId(profile_id), "report_id": ObjectId(id)}
         )
 
         if not user_report:
