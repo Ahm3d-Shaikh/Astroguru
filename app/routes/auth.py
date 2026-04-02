@@ -81,25 +81,7 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
 @router.post("/request-otp/phone")
 async def request_otp_for_phone(payload: OtpRequest):
     try:
-        user = await get_user_by_phone(payload.phone, payload.country_code)
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User Not Found")
-        if user:
-            if not user.get("is_enabled", True):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Account Disabled. Please contact admin."
-                )
-        user_id = user["_id"]
         verification_sid = await send_otp_sms(payload.country_code, payload.phone)        
-        await db.otp_table.update_one(
-            {"user_id": user_id},
-            {"$set": {
-                "created_at": datetime.utcnow(),
-                "verification_sid": verification_sid,
-            }},
-            upsert=True
-        )
         return {"message": "OTP Sent Successfully"}
     
     except HTTPException as http_err:
