@@ -11,9 +11,13 @@ from datetime import datetime, timedelta
 from app.db.mongo import db
 from bson import ObjectId
 import pytz
+import os
 
 
 router = APIRouter()
+
+TESTING_NUMBER = os.getenv("TESTING_NUMBER")
+TESTING_OTP = os.getenv("TESTING_OTP")
 
 @router.post("/onboard")
 async def onboard_user(payload: UserCreate, current_user = Depends(get_current_user)):
@@ -96,6 +100,7 @@ async def request_otp_for_phone(payload: OtpRequest):
 @router.post("/request-otp")
 async def request_otp(payload: OtpRequest):
     try:
+        is_testing = payload.phone == TESTING_NUMBER
         user = await get_user_by_phone(payload.phone, payload.country_code)
         if user:
             if not user.get("is_enabled", True):
@@ -115,7 +120,7 @@ async def request_otp(payload: OtpRequest):
             })
             user_id = res.inserted_id
 
-        verification_sid = await send_otp_sms(payload.country_code, payload.phone)        
+        verification_sid = "testing" if is_testing else await send_otp_sms(payload.country_code, payload.phone)        
         await db.otp_table.update_one(
             {"user_id": user_id},
             {"$set": {
@@ -170,15 +175,36 @@ async def login(payload: LoginRequest):
         
         if not user["is_enabled"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account Disabled")
-        otp = await db.otp_table.find_one({"user_id": user["_id"]})
-        if not otp or "verification_sid" not in otp:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
-               
-        verification_check = await verify_otp(payload.country_code, payload.phone, payload.otp)
-        if verification_check.status != "approved":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
         
+        is_testing = payload.phone == TESTING_NUMBER
+        if is_testing:
+            if payload.otp != TESTING_OTP:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid OTP"
+                )
+        else:
+            otp = await db.otp_table.find_one({"user_id": user["_id"]})
+            if not otp or "verification_sid" not in otp:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+                
+            verification_check = await verify_otp(payload.country_code, payload.phone, payload.otp)
+            if verification_check.status != "approved":
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+            
         await db.otp_table.delete_one({"user_id": user["_id"]})
+        if is_testing:
+            await db.user_wallet.update_one(
+                {"user_id": ObjectId(user["_id"])},
+                {
+                    "$inc": {"credits_balance": 10000},
+                    "$set": {
+                        "reason": "Test Account",
+                        "updated_at": datetime.utcnow()
+                    }
+                },
+                upsert=True
+            )
         token = create_access_token(subject=str(user["_id"]))
         coins = await fetch_user_coins(user["_id"])
         user_dict = dict(user)
