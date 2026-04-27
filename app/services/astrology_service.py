@@ -124,11 +124,6 @@ async def get_categories_from_questions(questions):
                 config=config,
             )
         )
-    # response = await client.aio.models.generate_content(
-    #     model="gemini-2.0-flash",
-    #     contents=questions_text,
-    #     config=config,
-    # )
 
     raw = response.text.strip()
     cleaned = re.sub(r"```json|```", "", raw).strip()
@@ -213,11 +208,6 @@ async def fetch_dynamic_questions(user_id, profile_id, language):
                     config=config,
                 )
             )
-        # response = await client.aio.models.generate_content(
-        #     model="gemini-2.0-flash",
-        #     contents=dynamic_prompt,
-        #     config=config,
-        # )
 
         raw_text = response.text.strip()
         cleaned_text = re.sub(r"```json|```", "", raw_text).strip()
@@ -391,11 +381,14 @@ async def fetch_user_profile_summary(profile_details, conversations, reports):
             system_instruction = system_prompt
         )
 
-        response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=config,
-        )
+        async with llm_semaphore:
+            response = await generate_with_retry(
+                lambda: client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=contents,
+                    config=config,
+                )
+            )
 
         reply = response.text
         return reply
