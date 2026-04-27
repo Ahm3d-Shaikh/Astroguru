@@ -112,14 +112,13 @@ async def get_categories_from_questions(questions):
     """
 
     config = types.GenerateContentConfig(
-        temperature=0.1,
-        max_output_tokens=100,
+        temperature=1.0,
         system_instruction=system_prompt,
     )
     async with llm_semaphore:
         response = await generate_with_retry(
             lambda: client.aio.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3-flash-preview",
                 contents=questions_text,
                 config=config,
             )
@@ -196,14 +195,13 @@ async def fetch_dynamic_questions(user_id, profile_id, language):
 
 
         config = types.GenerateContentConfig(
-        temperature=0.8, 
-        max_output_tokens=300
+        temperature=1.0, 
         )
 
         async with llm_semaphore:
             response = await generate_with_retry(
                 lambda: client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3-flash-preview",
                     contents=dynamic_prompt,
                     config=config,
                 )
@@ -376,15 +374,14 @@ async def fetch_user_profile_summary(profile_details, conversations, reports):
 
 
         config = types.GenerateContentConfig(
-            temperature = 0.2,
-            max_output_tokens = 1000,
+            temperature = 1.0,
             system_instruction = system_prompt
         )
 
         async with llm_semaphore:
             response = await generate_with_retry(
                 lambda: client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3-flash-preview",
                     contents=contents,
                     config=config,
                 )

@@ -200,14 +200,14 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         ]
 
         config = types.GenerateContentConfig(
-        temperature = 0.2,
-        max_output_tokens = 4000,
+        temperature = 1.0,
+        max_output_tokens = 6000,
         system_instruction = prompt
         )
         async with llm_semaphore:
             response = await generate_with_retry(
                 lambda: client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3-flash-preview",
                     contents=contents,
                     config=config,
                 )
@@ -417,11 +417,10 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
         async with llm_semaphore:
             response = await generate_with_retry(
                 lambda: client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3-flash-preview",
                     contents=[m["content"] for m in messages],
                     config=types.GenerateContentConfig(
-                        temperature=0.3,
-                        max_output_tokens=1000,
+                        temperature=1.0,
                 )
             ))
 
