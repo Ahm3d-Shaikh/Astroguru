@@ -312,14 +312,13 @@ async def get_category_from_question(question):
     """
     
     config = types.GenerateContentConfig(
-        temperature=0.1,
-        max_output_tokens=64,
+        temperature=1.0,
         system_instruction=system_prompt,
     )
     async with llm_semaphore:
         response = await generate_with_retry(
             lambda: client.aio.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3-flash-preview",
                 contents=question,
                 config=config,
             )
@@ -429,15 +428,14 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
 
 
     config = types.GenerateContentConfig(
-        temperature = 0.2,
-        max_output_tokens = 1000,
+        temperature = 1.0,
         system_instruction = system_prompt
     )
 
     async with llm_semaphore:
         response = await generate_with_retry(
             lambda: client.aio.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3-flash-preview",
                 contents=contents,
                 config=config,
             )
@@ -498,15 +496,15 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
     ]
 
     config = types.GenerateContentConfig(
-        temperature=0.2,
-        max_output_tokens=2000,
+        temperature=1.0,
+        max_output_tokens=5000,
         system_instruction=prompt,
     )
 
     async with llm_semaphore:
         response = await generate_with_retry(
             lambda: client.aio.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3-flash-preview",
                 contents=contents,
                 config=config,
             )
@@ -713,15 +711,14 @@ async def generate_predictions_for_homepage(user_details, astrology_data, langua
 
 
         config = types.GenerateContentConfig(
-            temperature=0.2,
-            max_output_tokens=1000,
+            temperature=1.0,
             system_instruction=prompt,
         )
 
         async with llm_semaphore:
             response = await generate_with_retry(
                 lambda: client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3-flash-preview",
                     contents=contents,
                     config=config,
                 )
