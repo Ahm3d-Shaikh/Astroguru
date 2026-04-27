@@ -6,9 +6,11 @@ from datetime import datetime
 import json
 import re
 from app.clients.gemini_client import client
+from app.utils.concurrency import generate_with_retry
 from app.utils.mongo import convert_mongo
+from app.core.concurrency import llm_semaphore
 from app.services.conversation_service import fetch_conversations
-from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details, get_category_from_question
+from app.utils.helper import fetch_user_details, get_or_fetch_astrology_data, get_astrology_prediction, fetch_user_report, generate_report_helper, generate_predictions_for_homepage, fetch_profile_details, get_category_from_question, fetch_categories
 
 
 async def fetch_predictions_for_user(id, profile_id, user_question, conversation_id, language):
@@ -81,6 +83,59 @@ async def fetch_dashboard_predictions(user_id, profile_id, language):
     return text_output, prediction_dict
 
 
+async def get_categories_from_questions(questions):
+    category_list = await fetch_categories()
+
+    questions_text = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+
+    system_prompt = f"""
+    You are a strict classifier.
+
+    These are the ONLY allowed categories:
+    {category_list}
+
+    Classify each question into exactly ONE category.
+
+    Rules:
+    - Return JSON
+    - Do NOT explain
+    - Use only provided categories
+
+    Format:
+    {{
+      "answers": [
+        "category1",
+        "category2",
+        "category3"
+      ]
+    }}
+    """
+
+    config = types.GenerateContentConfig(
+        temperature=0.1,
+        max_output_tokens=100,
+        system_instruction=system_prompt,
+    )
+    async with llm_semaphore:
+        response = await generate_with_retry(
+            lambda: client.aio.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=questions_text,
+                config=config,
+            )
+        )
+    # response = await client.aio.models.generate_content(
+    #     model="gemini-2.0-flash",
+    #     contents=questions_text,
+    #     config=config,
+    # )
+
+    raw = response.text.strip()
+    cleaned = re.sub(r"```json|```", "", raw).strip()
+    parsed = json.loads(cleaned)
+
+    return parsed["answers"]
+
 async def fetch_dynamic_questions(user_id, profile_id, language):
     try:
         query = {"user_id": ObjectId(user_id)}
@@ -150,23 +205,33 @@ async def fetch_dynamic_questions(user_id, profile_id, language):
         max_output_tokens=300
         )
 
-        response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=dynamic_prompt,
-            config=config,
-        )
+        async with llm_semaphore:
+            response = await generate_with_retry(
+                lambda: client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=dynamic_prompt,
+                    config=config,
+                )
+            )
+        # response = await client.aio.models.generate_content(
+        #     model="gemini-2.0-flash",
+        #     contents=dynamic_prompt,
+        #     config=config,
+        # )
 
         raw_text = response.text.strip()
         cleaned_text = re.sub(r"```json|```", "", raw_text).strip()
         parsed = json.loads(cleaned_text)
         suggested_questions = parsed["questions"]
         suggested_questions_with_categories = list()
-        for question in suggested_questions:
-            category = await get_category_from_question(question)
-            suggested_questions_with_categories.append({
-                "question": question,
-                "category": category
-            })
+        categories = await get_categories_from_questions(suggested_questions)
+        suggested_questions_with_categories = [
+            {
+                "question": q,
+                "category": c
+            }
+            for q, c in zip(suggested_questions, categories)
+        ]
         return suggested_questions_with_categories
     except HTTPException as http_err:
         raise http_err
