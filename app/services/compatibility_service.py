@@ -7,6 +7,8 @@ from app.services.astrology_service import generate_report_from_ai
 from app.services.subscription_service import deduct_user_credits
 from app.clients.gemini_client import client
 from app.utils.mongo import convert_mongo
+from app.core.concurrency import llm_semaphore
+from app.utils.concurrency import generate_with_retry
 from google.genai import types
 from fpdf import FPDF
 import io
@@ -202,12 +204,14 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         max_output_tokens = 4000,
         system_instruction = prompt
         )
-
-        response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=config,
-        )
+        async with llm_semaphore:
+            response = await generate_with_retry(
+                lambda: client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=contents,
+                    config=config,
+                )
+            )
         await deduct_user_credits(user_id, 10, "1 Report Consumed")
         report_text = response.text
         if not pdf_report or pdf_report is False:
@@ -410,14 +414,16 @@ async def fetch_question_about_report(user_id, report_id, profile_id, payload, c
             "content": payload.user_question
         })
 
-        response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[m["content"] for m in messages],
-            config=types.GenerateContentConfig(
-                temperature=0.3,
-                max_output_tokens=1000
-            )
-        )
+        async with llm_semaphore:
+            response = await generate_with_retry(
+                lambda: client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=[m["content"] for m in messages],
+                    config=types.GenerateContentConfig(
+                        temperature=0.3,
+                        max_output_tokens=1000,
+                )
+            ))
 
         ai_reply = response.text
 

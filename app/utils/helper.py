@@ -15,6 +15,8 @@ import asyncio
 import io
 import re
 from app.clients.aws import s3_client, S3_BUCKET
+from app.core.concurrency import llm_semaphore
+from app.utils.concurrency import generate_with_retry
 from app.services.subscription_service import deduct_user_credits
 import pytz
 
@@ -314,12 +316,14 @@ async def get_category_from_question(question):
         max_output_tokens=64,
         system_instruction=system_prompt,
     )
-
-    response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=question,
-        config=config,
-    )
+    async with llm_semaphore:
+        response = await generate_with_retry(
+            lambda: client.aio.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=question,
+                config=config,
+            )
+        )
 
     reply = response.text.strip().strip('"').strip("'").lower()  # <-- normalize
     return reply
@@ -430,11 +434,14 @@ async def get_astrology_prediction(user_astrology_data: dict, user_question: str
         system_instruction = system_prompt
     )
 
-    response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=contents,
-        config=config,
-    )
+    async with llm_semaphore:
+        response = await generate_with_retry(
+            lambda: client.aio.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=contents,
+                config=config,
+            )
+        )
 
     reply = response.text
 
@@ -496,11 +503,14 @@ async def generate_report_helper(user_details, astrology_data, user_report, pdf_
         system_instruction=prompt,
     )
 
-    response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=contents,
-        config=config,
-    )
+    async with llm_semaphore:
+        response = await generate_with_retry(
+            lambda: client.aio.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=contents,
+                config=config,
+            )
+        )
     
     report_text = response.text
 
@@ -708,11 +718,14 @@ async def generate_predictions_for_homepage(user_details, astrology_data, langua
             system_instruction=prompt,
         )
 
-        response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=config,
-        )
+        async with llm_semaphore:
+            response = await generate_with_retry(
+                lambda: client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=contents,
+                    config=config,
+                )
+            )
 
 
         content = response.text
