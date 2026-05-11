@@ -33,3 +33,8 @@ app.include_router(notification.router, prefix="/notification")
 async def root():
     return {"message": "Welcome to the FastAPI project!"}
 
+
+@app.get("/ci-test")
+def ci_test():
+    return {"status": "CI/CD working 🚀"}
+
