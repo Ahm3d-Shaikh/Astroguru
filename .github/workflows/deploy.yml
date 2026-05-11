@@ -19,8 +19,14 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
+            set -e
+
             cd ~/Astroma-backend
 
+            echo "Pulling latest code..."
             git pull origin main
 
+            echo "Building and restarting containers..."
             docker compose up --build -d
+
+            echo "Deployment completed successfully"
