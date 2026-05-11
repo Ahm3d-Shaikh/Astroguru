@@ -262,26 +262,31 @@ async def fetch_user_compatibility_reports_for_admin(user_id, profile_id=None):
 
 async def fetch_user_reports(user_id, profile_id=None):
     try:
-        query = {
-            "user_id": ObjectId(user_id)
-        }
-
+        match_query = {"user_id": ObjectId(user_id)}
         if profile_id:
-            query["profile_id"] = ObjectId(profile_id)
+            match_query["profile_id"] = ObjectId(profile_id)
 
-        user_reports = await db.user_reports.find(query).to_list(length=None)
+        pipeline = [
+            {"$match": match_query},
+            {
+                "$lookup": {
+                    "from": "reports",
+                    "localField": "report_id",
+                    "foreignField": "_id",
+                    "as": "report_info"
+                }
+            },
+            {"$unwind": {"path": "$report_info", "preserveNullAndEmptyArrays": False}},
+            {"$replaceRoot": {"newRoot": "$report_info"}},
+        ]
 
-        if len(user_reports) == 0:
+        reports = await db.user_reports.aggregate(pipeline).to_list(length=None)
+
+        if not reports:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No Downloaded Reports Found For The User"
             )
-
-        report_ids = [ur["report_id"] for ur in user_reports]
-
-        reports = await db.reports.find(
-            {"_id": {"$in": report_ids}}
-        ).to_list(length=None)
 
         return reports
 

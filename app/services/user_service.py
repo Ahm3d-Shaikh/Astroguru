@@ -334,162 +334,111 @@ async def edit_user_details(user_id, update_data):
 async def fetch_users_summary():
     try:
         now = datetime.now(timezone.utc)
-
-        current_month_start = now.replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        )
-
+        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         if current_month_start.month == 1:
-            prev_month_start = current_month_start.replace(
-                year=current_month_start.year - 1, month=12
-            )
+            prev_month_start = current_month_start.replace(year=current_month_start.year - 1, month=12)
         else:
-            prev_month_start = current_month_start.replace(
-                month=current_month_start.month - 1
-            )
-
+            prev_month_start = current_month_start.replace(month=current_month_start.month - 1)
         prev_month_end = current_month_start
-        users_count = await db.users.count_documents({"role": "user", "is_onboarded": True})
-        male_users_count = await db.users.count_documents({
-            "role": "user",
-            "is_onboarded": True,
-            "gender": re.compile("^male$", re.IGNORECASE) 
-        })
-
-        female_users_count = await db.users.count_documents({
-            "role": "user",
-            "is_onboarded": True,
-            "gender": re.compile("^female$", re.IGNORECASE)
-        })
-
-        other_users_count = await db.users.count_documents({
-            "role": "user",
-            "is_onboarded": True,
-            "gender": re.compile("^other$", re.IGNORECASE)
-        })
-
-        def build_gender_filter(gender):
-            return {
-                "role": "user",
-                "is_onboarded": True,
-                "gender": re.compile(f"^{gender}$", re.IGNORECASE)
-            }
-
-        current_month_users = await db.users.count_documents({
-            "role": "user",
-            "is_onboarded": True,
-            "created_at": {"$gte": current_month_start}
-        })
-
-        previous_month_users = await db.users.count_documents({
-            "role": "user",
-            "is_onboarded": True,
-            "created_at": {
-                "$gte": prev_month_start,
-                "$lt": prev_month_end
-            }
-        })
-
-        current_month_males = await db.users.count_documents({
-            **build_gender_filter("male"),
-            "created_at": {"$gte": current_month_start}
-        })
-        previous_month_males = await db.users.count_documents({
-            **build_gender_filter("male"),
-            "created_at": {"$gte": prev_month_start, "$lt": prev_month_end}
-        })
-
-        current_month_females = await db.users.count_documents({
-            **build_gender_filter("female"),
-            "created_at": {"$gte": current_month_start}
-        })
-        previous_month_females = await db.users.count_documents({
-            **build_gender_filter("female"),
-            "created_at": {"$gte": prev_month_start, "$lt": prev_month_end}
-        })
-
-        current_month_other = await db.users.count_documents({
-            **build_gender_filter("other"),
-            "created_at": {"$gte": current_month_start}
-        })
-        previous_month_other = await db.users.count_documents({
-            **build_gender_filter("other"),
-            "created_at": {"$gte": prev_month_start, "$lt": prev_month_end}
-        })
-
-
-        total_revenue_pipeline = [
-            {
-                "$group": {
-                    "_id": None,
-                    "total_revenue": {"$sum": "$total_spent"}  
-                }
-            }
-        ]
-
-        result = await db.user_wallet.aggregate(total_revenue_pipeline).to_list(length=1)
-        total_revenue = result[0]["total_revenue"] if result else 0
-
-
-        async def get_revenue_between(start, end=None):
-            match_stage = {
-                "updated_at": {"$gte": start}
-            }
-            if end:
-                match_stage["updated_at"]["$lt"] = end
-
-            pipeline = [
-                {"$match": match_stage},
-                {
-                    "$group": {
-                        "_id": None,
-                        "total": {"$sum": "$total_spent"}
-                    }
-                }
-            ]
-
-            result = await db.user_wallet.aggregate(
-                pipeline
-            ).to_list(length=1)
-
-            return result[0]["total"] if result else 0
-
-        current_month_revenue = await get_revenue_between(current_month_start)
-        previous_month_revenue = await get_revenue_between(
-            prev_month_start,
-            prev_month_end
-        )
 
         def calculate_percentage_change(current, previous):
             if previous == 0:
                 return 100 if current > 0 else 0
             return ((current - previous) / previous) * 100
 
-        user_trend = calculate_percentage_change(
-            current_month_users,
-            previous_month_users
+        # Single aggregation replaces 12 sequential count_documents calls.
+        # Groups each onboarded user into total / current-month / prev-month buckets by gender.
+        user_pipeline = [
+            {"$match": {"role": "user", "is_onboarded": True}},
+            {
+                "$addFields": {
+                    "gender_lower": {"$toLower": "$gender"},
+                    "in_current_month": {"$gte": ["$created_at", current_month_start]},
+                    "in_prev_month": {
+                        "$and": [
+                            {"$gte": ["$created_at", prev_month_start]},
+                            {"$lt": ["$created_at", prev_month_end]},
+                        ]
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total": {"$sum": 1},
+                    "males": {"$sum": {"$cond": [{"$eq": ["$gender_lower", "male"]}, 1, 0]}},
+                    "females": {"$sum": {"$cond": [{"$eq": ["$gender_lower", "female"]}, 1, 0]}},
+                    "other": {"$sum": {"$cond": [{"$eq": ["$gender_lower", "other"]}, 1, 0]}},
+                    "current_month": {"$sum": {"$cond": ["$in_current_month", 1, 0]}},
+                    "prev_month": {"$sum": {"$cond": ["$in_prev_month", 1, 0]}},
+                    "current_month_males": {
+                        "$sum": {"$cond": [{"$and": ["$in_current_month", {"$eq": ["$gender_lower", "male"]}]}, 1, 0]}
+                    },
+                    "prev_month_males": {
+                        "$sum": {"$cond": [{"$and": ["$in_prev_month", {"$eq": ["$gender_lower", "male"]}]}, 1, 0]}
+                    },
+                    "current_month_females": {
+                        "$sum": {"$cond": [{"$and": ["$in_current_month", {"$eq": ["$gender_lower", "female"]}]}, 1, 0]}
+                    },
+                    "prev_month_females": {
+                        "$sum": {"$cond": [{"$and": ["$in_prev_month", {"$eq": ["$gender_lower", "female"]}]}, 1, 0]}
+                    },
+                    "current_month_other": {
+                        "$sum": {"$cond": [{"$and": ["$in_current_month", {"$eq": ["$gender_lower", "other"]}]}, 1, 0]}
+                    },
+                    "prev_month_other": {
+                        "$sum": {"$cond": [{"$and": ["$in_prev_month", {"$eq": ["$gender_lower", "other"]}]}, 1, 0]}
+                    },
+                }
+            },
+        ]
+
+        # Single aggregation for all revenue figures.
+        revenue_pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total_revenue": {"$sum": "$total_spent"},
+                    "current_month_revenue": {
+                        "$sum": {
+                            "$cond": [{"$gte": ["$updated_at", current_month_start]}, "$total_spent", 0]
+                        }
+                    },
+                    "prev_month_revenue": {
+                        "$sum": {
+                            "$cond": [
+                                {"$and": [
+                                    {"$gte": ["$updated_at", prev_month_start]},
+                                    {"$lt": ["$updated_at", prev_month_end]},
+                                ]},
+                                "$total_spent",
+                                0,
+                            ]
+                        }
+                    },
+                }
+            }
+        ]
+
+        user_result, revenue_result = await asyncio.gather(
+            db.users.aggregate(user_pipeline).to_list(length=1),
+            db.user_wallet.aggregate(revenue_pipeline).to_list(length=1),
         )
 
-        revenue_trend = calculate_percentage_change(
-            current_month_revenue,
-            previous_month_revenue
-        )
-
-        male_trend = calculate_percentage_change(current_month_males, previous_month_males)
-        female_trend = calculate_percentage_change(current_month_females, previous_month_females)
-        other_trend = calculate_percentage_change(current_month_other, previous_month_other)
+        u = user_result[0] if user_result else {}
+        r = revenue_result[0] if revenue_result else {}
 
         return {
-            "users": users_count,
-            "users_trend": round(user_trend, 2),
-            "males": male_users_count,
-            "male_trend": round(male_trend, 2),
-            "females": female_users_count,
-            "female_trend": round(female_trend, 2),
-            "other": other_users_count,
-            "other_trend": round(other_trend, 2),
-            "revenue": round(total_revenue),
-            "revenue_trend": round(revenue_trend, 2)
+            "users": u.get("total", 0),
+            "users_trend": round(calculate_percentage_change(u.get("current_month", 0), u.get("prev_month", 0)), 2),
+            "males": u.get("males", 0),
+            "male_trend": round(calculate_percentage_change(u.get("current_month_males", 0), u.get("prev_month_males", 0)), 2),
+            "females": u.get("females", 0),
+            "female_trend": round(calculate_percentage_change(u.get("current_month_females", 0), u.get("prev_month_females", 0)), 2),
+            "other": u.get("other", 0),
+            "other_trend": round(calculate_percentage_change(u.get("current_month_other", 0), u.get("prev_month_other", 0)), 2),
+            "revenue": round(r.get("total_revenue", 0)),
+            "revenue_trend": round(calculate_percentage_change(r.get("current_month_revenue", 0), r.get("prev_month_revenue", 0)), 2),
         }
     except HTTPException as http_err:
         raise http_err

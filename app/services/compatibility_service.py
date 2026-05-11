@@ -14,6 +14,8 @@ from fpdf import FPDF
 import io
 import re
 import json
+import asyncio
+from functools import partial
 from app.clients.aws import s3_client, S3_BUCKET
 
 
@@ -177,17 +179,15 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         if existing_docs:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{report_type} Report For These Profiles Already Exists")
         
-        for profile in payload.profile_id:
+        async def _fetch_profile_data(profile):
             profile_details = await fetch_profile_details(user_id, profile)
             astrology_data = await get_or_fetch_astrology_data(user_id, profile, profile_details)
             astrology_summary = "\n".join(f"{key}: {value}" for key, value in astrology_data.items())
+            return str(profile), {"profile_details": profile_details, "astrology_summary": astrology_summary}
 
-            profile_key = str(profile)  
-
-            profiles[profile_key] = {
-                "profile_details": profile_details,
-                "astrology_summary": astrology_summary
-            }
+        profile_results = await asyncio.gather(*[_fetch_profile_data(p) for p in payload.profile_id])
+        for profile_key, profile_data in profile_results:
+            profiles[profile_key] = profile_data
 
         safe_profiles = convert_mongo(profiles)
         profiles_str = json.dumps(safe_profiles, indent=2) 
@@ -313,11 +313,16 @@ async def generate_compatibility_report(user_id, payload, pdf_report, report_typ
         filename = f"compatibility_report_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
         s3_key = f"compatibility_reports/{filename}"
 
-        s3_client.upload_fileobj(
-            Fileobj=pdf_buffer,
-            Bucket=S3_BUCKET,
-            Key=s3_key,
-            ExtraArgs={"ContentType": "application/pdf"},
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            partial(
+                s3_client.upload_fileobj,
+                pdf_buffer,
+                S3_BUCKET,
+                s3_key,
+                ExtraArgs={"ContentType": "application/pdf"},
+            ),
         )
 
         file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"

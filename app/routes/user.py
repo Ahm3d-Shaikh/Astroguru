@@ -1,5 +1,5 @@
 from fastapi import HTTPException, APIRouter, status, Depends, Body, Query
-from app.deps.auth_deps import get_current_user
+from app.deps.auth_deps import get_current_user, invalidate_user_cache
 from app.utils.admin import is_user_admin
 from app.services.user_service import fetch_users, fetch_user_by_id, delete_user_by_id, fetch_logged_in_user_details, edit_user_details, fetch_dashboard_details_for_user, delete_logged_in_user_by_id, fetch_users_summary, fetch_user_onboarding_status, block_user_from_db, fetch_user_stats, unblock_user_from_db, duplicate_phone_helper
 from app.utils.helper import fetch_chart_image
@@ -209,6 +209,7 @@ async def block_user(id: str, current_user = Depends(get_current_user)):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         
         await block_user_from_db(id)
+        invalidate_user_cache(id)
         return {"message": "User Blocked Successfully"}
     except HTTPException as http_err:
         raise http_err
@@ -226,6 +227,7 @@ async def unblock_user(id: str, current_user = Depends(get_current_user)):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have access to this feature")
         
         await unblock_user_from_db(id)
+        invalidate_user_cache(id)
         return {"message": "User Unblocked Successfully"}
     except HTTPException as http_err:
         raise http_err

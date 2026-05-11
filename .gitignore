@@ -18,3 +18,10 @@ __pycache__/
 .idea/
 
 app/config/firebase_key.json
+
+# Test / local-only files
+astroma_tester.html
+
+# macOS
+.DS_Store
+**/.DS_Store

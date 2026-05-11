@@ -45,7 +45,7 @@ async def save_astrology_data(user_id: str, profile_id: str, astrology_data: dic
         }
 
         await db.astrological_information.update_one(
-            {"user_id": user_id, "profile_id": profile_id},
+            {"user_id": ObjectId(user_id), "profile_id": ObjectId(profile_id)},
             {"$set": record},
             upsert=True
         )

@@ -1,18 +1,37 @@
-from fastapi import APIRouter, HTTPException, status, Body, Depends
+from fastapi import APIRouter, HTTPException, status, Body, Depends, BackgroundTasks
 from app.deps.auth_deps import get_current_user
 from app.models.profile import UserProfileCreate, UserProfileUpdate
 from app.services.profile_service import add_profile_to_db, get_profiles_for_user, get_specific_profile_from_db, delete_user_profile_from_db, edit_profile_in_db
+from app.utils.helper import get_or_fetch_astrology_data, fetch_profile_details
 import json
+import logging
 from bson import json_util
 
 router = APIRouter()
 
 
+async def _prefetch_astrology(user_id: str, profile_id: str):
+    """Fetched fresh from DB so types match what the live request path uses."""
+    try:
+        profile_details = await fetch_profile_details(user_id, profile_id)
+        await get_or_fetch_astrology_data(user_id, profile_id, profile_details)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Background astrology prefetch failed for profile %s", profile_id, exc_info=True
+        )
+
+
 @router.post("/")
-async def create_profile(payload: UserProfileCreate, current_user = Depends(get_current_user)):
+async def create_profile(
+    payload: UserProfileCreate,
+    background_tasks: BackgroundTasks,
+    current_user = Depends(get_current_user),
+):
     try:
         user_id = current_user["_id"]
         added_profile = await add_profile_to_db(payload, user_id)
+        profile_id = added_profile["_id"]
+        background_tasks.add_task(_prefetch_astrology, user_id, profile_id)
         return {"message": "User Profile Added Successfully", "result": added_profile}
     except HTTPException as http_err:
         raise http_err
