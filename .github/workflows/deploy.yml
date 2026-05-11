@@ -27,6 +27,6 @@ jobs:
             git pull origin main
 
             echo "Building and restarting containers..."
-            docker compose up --build -d
+            docker-compose up --build -d
 
             echo "Deployment completed successfully"
