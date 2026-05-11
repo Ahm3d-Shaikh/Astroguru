@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  backend:
+    build: .
+    container_name: astroma_backend
+
+    ports:
+      - "127.0.0.1:8001:8001"
+
+    restart: always
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./app/config/firebase_key.json:/app/app/config/firebase_key.json:ro
