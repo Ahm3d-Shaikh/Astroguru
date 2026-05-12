@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 from app.db.mongo import db
 from bson import ObjectId
+from app.clients.firebase import verify_social_token
 import random
 
 
@@ -79,3 +80,71 @@ async def get_user_by_id(user_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching user by id: {str(e)}"
         )
+
+
+async def social_login_service(id_token: str, provider: str):
+    """
+    Verify a Firebase social token (Google / Apple) and find-or-create the user.
+
+    Lookup order:
+      1. Existing user with matching social_id  → login directly
+      2. Existing user with matching email       → link social_id, then login
+      3. No match anywhere                       → create new user
+
+    Returns: (jwt_token, user_dict, is_new_user)
+    """
+    # ── 1. Verify token with Firebase (blocking call → executor) ──────────────
+    decoded = await verify_social_token(id_token)
+
+    firebase_uid = decoded.get("uid")
+    email        = decoded.get("email")
+    name         = decoded.get("name") or ""
+    avatar       = decoded.get("picture") or ""
+
+    if not firebase_uid:
+        raise HTTPException(status_code=401, detail="Invalid token: missing uid")
+
+    # ── 2. Find by social_id ────────────────────────────────────────────────────
+    user = await db.users.find_one({"social_id": firebase_uid})
+    is_new_user = False
+
+    # ── 3. Try to link with an existing phone-login account (same email) ───────
+    if not user and email:
+        user = await db.users.find_one({"email": email})
+        if user:
+            await db.users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {
+                    "social_id": firebase_uid,
+                    "auth_provider": provider,
+                    "avatar": avatar,
+                }}
+            )
+            user = await db.users.find_one({"_id": user["_id"]})
+
+    # ── 4. Brand-new user ───────────────────────────────────────────────────────
+    if not user:
+        is_new_user = True
+        res = await db.users.insert_one({
+            "email":        email,
+            "name":         name,
+            "avatar":       avatar,
+            "social_id":    firebase_uid,
+            "auth_provider": provider,
+            "is_onboarded": False,
+            "is_enabled":   True,
+            "role":         "user",
+            "created_at":   datetime.utcnow(),
+        })
+        user = await db.users.find_one({"_id": res.inserted_id})
+
+    # ── 5. Block check ──────────────────────────────────────────────────────────
+    if not user.get("is_enabled", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account Disabled. Please contact admin."
+        )
+
+    token = create_access_token(subject=str(user["_id"]))
+    user["_id"] = str(user["_id"])
+    return token, user, is_new_user

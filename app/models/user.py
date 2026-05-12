@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Literal
 from pydantic import BaseModel, EmailStr, constr, field_validator
 from datetime import time, date
 import pytz
@@ -13,7 +13,9 @@ class UserCreate(BaseModel):
     long: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     place_of_birth: Annotated[str, constr(strip_whitespace=True, min_length=1)]
     timezone: Annotated[str, constr(strip_whitespace=True, min_length=1)]  # IANA timezone
-
+    # Social-login users supply phone during onboarding (phone-OTP users already have it in DB)
+    phone: Optional[str] = None
+    country_code: Optional[str] = None
 
     @field_validator("lat", "long")
     def lat_long_must_be_nonempty(cls, v, info):
@@ -30,6 +32,11 @@ class UserCreate(BaseModel):
         if v not in pytz.all_timezones:
             raise ValueError(f"Invalid timezone: {v}")
         return v
+
+
+class SocialLoginRequest(BaseModel):
+    id_token: str                          # Firebase ID token from mobile
+    provider: Literal["google", "apple"]   # which provider was used
 
 class UserInDB(BaseModel):
     id: str

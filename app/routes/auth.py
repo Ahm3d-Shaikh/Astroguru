@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from app.models.user import UserCreate
+from app.models.user import UserCreate, SocialLoginRequest
 from app.models.login import LoginRequest
 from app.deps.auth_deps import get_current_user
 from app.models.otp import OtpRequest
 from app.utils.twilio import send_otp_sms, verify_otp
-from app.services.auth_service import create_access_token, generate_otp, get_user_by_phone
+from app.services.auth_service import create_access_token, generate_otp, get_user_by_phone, social_login_service
 from app.utils.helper import get_zodiac_sign
 from app.services.subscription_service import fetch_user_coins, add_user_credits
 from datetime import datetime, timedelta
@@ -22,16 +22,15 @@ TESTING_OTP = os.getenv("TESTING_OTP")
 @router.post("/onboard")
 async def onboard_user(payload: UserCreate, current_user = Depends(get_current_user)):
     try:
-        user_id = ObjectId(current_user["_id"])        
+        user_id = ObjectId(current_user["_id"])
         user_doc_raw = payload.dict()
 
-        dob_date = user_doc_raw["date_of_birth"]          
-        tob_time = user_doc_raw["time_of_birth"]  
+        dob_date = user_doc_raw["date_of_birth"]
+        tob_time = user_doc_raw["time_of_birth"]
         tz_name = user_doc_raw["timezone"]
-        
 
-        dob_str = dob_date.isoformat()                    
-        tob_str = tob_time.strftime("%H:%M")              
+        dob_str = dob_date.isoformat()
+        tob_str = tob_time.strftime("%H:%M")
 
         birth_timestamp = datetime(
             year=dob_date.year,
@@ -49,18 +48,42 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
         user_doc = {
             "name": user_doc_raw["name"],
             "gender": user_doc_raw["gender"],
-            "date_of_birth": dob_str,            
-            "time_of_birth": tob_str,    
+            "date_of_birth": dob_str,
+            "time_of_birth": tob_str,
             "birth_timestamp": birth_timestamp,
             "place_of_birth": user_doc_raw["place_of_birth"],
             "lat": user_doc_raw["lat"],
-            "long": user_doc_raw["long"], 
+            "long": user_doc_raw["long"],
             "timezone": tz_name,
             "utc_offset": utc_offset,
-            "is_onboarded": True, 
+            "is_onboarded": True,
             "is_push_notifications_enabled": True,
-            "created_at": datetime.utcnow(),     
+            "created_at": datetime.utcnow(),
         }
+
+        # ── Social-login users: phone is required during onboarding ───────────
+        is_social_user = not current_user.get("phone")
+        if is_social_user:
+            phone        = payload.phone
+            country_code = payload.country_code
+            if not phone or not country_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Phone number and country code are required"
+                )
+            # Ensure phone not already registered to a different account
+            duplicate = await db.users.find_one({
+                "phone": phone,
+                "country_code": country_code,
+                "_id": {"$ne": user_id}
+            })
+            if duplicate:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Phone number already registered to another account"
+                )
+            user_doc["phone"]        = phone
+            user_doc["country_code"] = country_code
 
         res = await db.users.update_one(
             {"_id": user_id},
@@ -73,7 +96,7 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
         reason = "Onboarding bonus"
         await add_user_credits(user_id, 50, reason)
         return {"message": "User Onboarded Successfully"}
-    
+
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -211,11 +234,41 @@ async def login(payload: LoginRequest):
         user_dict["_id"] = str(user["_id"])
         user_dict["zodiac_sign"] = get_zodiac_sign(user_dict.get("date_of_birth"))
         return {"message": "User Logged In Successfully", "token": token, "user": user_dict, "coins": coins}
-    
+
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error: {str(e)}"
+        )
+
+
+@router.post("/social-login")
+async def social_login(payload: SocialLoginRequest):
+    """
+    Authenticate with a Firebase ID token issued by Google or Apple Sign-In.
+    - Verifies the token with Firebase Admin SDK.
+    - Finds or creates the user in MongoDB.
+    - Returns our own JWT (same format as phone login).
+    - is_new_user = true  → mobile should navigate to onboarding screen.
+    - is_new_user = false → mobile should navigate to home screen.
+    """
+    try:
+        token, user, is_new_user = await social_login_service(payload.id_token, payload.provider)
+        coins = await fetch_user_coins(user["_id"])
+        user["zodiac_sign"] = get_zodiac_sign(user.get("date_of_birth"))
+        return {
+            "message": "Logged In Successfully",
+            "token": token,
+            "user": user,
+            "coins": coins,
+            "is_new_user": is_new_user,
+        }
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Social login failed: {str(e)}"
         )
