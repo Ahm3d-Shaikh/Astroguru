@@ -71,17 +71,49 @@ async def onboard_user(payload: UserCreate, current_user = Depends(get_current_u
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Phone number and country code are required"
                 )
-            # Ensure phone not already registered to a different account
-            duplicate = await db.users.find_one({
+
+            # Check if phone already belongs to another account
+            existing_phone_user = await db.users.find_one({
                 "phone": phone,
                 "country_code": country_code,
                 "_id": {"$ne": user_id}
             })
-            if duplicate:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Phone number already registered to another account"
-                )
+
+            if existing_phone_user:
+                existing_id = existing_phone_user["_id"]
+                existing_auth = existing_phone_user.get("auth_provider")
+
+                if existing_auth in ("google", "apple") or existing_phone_user.get("social_id"):
+                    # Two different social accounts claiming the same phone → block
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="This phone number is already linked to another social account"
+                    )
+                else:
+                    # Phone belongs to an existing OTP account → link social identity to it
+                    # and delete the duplicate social-only account
+                    social_fields = {
+                        "social_id":    current_user.get("social_id"),
+                        "auth_provider": current_user.get("auth_provider"),
+                        "avatar":       current_user.get("avatar"),
+                        "email":        current_user.get("email"),
+                    }
+                    await db.users.update_one(
+                        {"_id": existing_id},
+                        {"$set": {k: v for k, v in social_fields.items() if v}}
+                    )
+                    # Remove the duplicate social-only account
+                    await db.users.delete_one({"_id": user_id})
+                    # Issue a fresh token for the merged (original phone) account
+                    from app.services.auth_service import create_access_token
+                    new_token = create_access_token(subject=str(existing_id))
+                    await add_user_credits(existing_id, 50, "Onboarding bonus")
+                    return {
+                        "message": "Account linked to existing phone account",
+                        "token": new_token,
+                        "merged": True,
+                    }
+
             user_doc["phone"]        = phone
             user_doc["country_code"] = country_code
 
