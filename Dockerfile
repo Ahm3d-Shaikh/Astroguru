@@ -5,7 +5,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
