@@ -26,11 +26,17 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            echo "Building image..."
-            docker-compose build
+            echo "Stopping old compose services..."
+            docker-compose down || true
 
-            echo "Starting updated containers..."
-            docker-compose up -d
+            echo "Removing old backend container..."
+            docker rm -f astroma_backend || true
+
+            echo "Killing anything using port 8001..."
+            sudo fuser -k 8001/tcp || true
+
+            echo "Building and starting containers..."
+            docker-compose up -d --build
 
             echo "Cleaning unused images..."
             docker image prune -f
