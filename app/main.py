@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 # (collection, keys, kwargs)
 _INDEX_SPECS = [
     ("users", [("email", ASCENDING)], {}),
-    ("users", [("phone", ASCENDING), ("country_code", ASCENDING)], {"unique": True}),
+    # sparse=True → documents without phone/country_code (social login users) are excluded
+    # from the index, so multiple social users with null phone don't conflict
+    ("users", [("phone", ASCENDING), ("country_code", ASCENDING)], {"unique": True, "sparse": True}),
     ("users", [("role", ASCENDING), ("is_onboarded", ASCENDING)], {}),
     ("users", [("role", ASCENDING), ("is_onboarded", ASCENDING), ("created_at", DESCENDING)], {}),
     ("user_profiles", [("user_id", ASCENDING)], {}),
@@ -35,11 +37,20 @@ _INDEX_SPECS = [
 
 
 async def _create_indexes():
+    # Drop the old non-sparse phone index so we can recreate it as sparse.
+    # Social login users have no phone yet, and the non-sparse unique index
+    # treats missing fields as null — causing duplicate key errors on the 2nd social user.
+    try:
+        await db.users.drop_index("phone_1_country_code_1")
+        logger.info("Dropped old non-sparse phone index — will recreate as sparse")
+    except Exception:
+        pass  # Already dropped or never existed — fine
+
     for coll, keys, kwargs in _INDEX_SPECS:
         try:
             await db[coll].create_index(keys, **kwargs)
         except Exception as e:
-            # Don't block startup if a single index fails (e.g. pre-existing dupes for a unique index)
+            # Don't block startup if a single index fails
             logger.warning("Failed to create index on %s %s: %s", coll, keys, e)
 
 
