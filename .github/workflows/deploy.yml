@@ -26,9 +26,6 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            echo "Enabling BuildKit..."
-            export DOCKER_BUILDKIT=1
-
             echo "Building image..."
             docker-compose build
 
